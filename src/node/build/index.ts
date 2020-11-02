@@ -404,8 +404,13 @@ async function buildWithContext(ctx: BuildContext): Promise<BuildResult[]> {
 
     const indexHtmlPath = getIndexHtmlOutputPath(build, outDir)
     const emitIndex = ctx.emitIndex && indexHtmlPath !== ''
-
-    const { output: outputOptions, onResult, ...inputOptions } = build
+    const writeBuild = write && build.write !== false
+    const {
+      write: _write,
+      onResult,
+      output: outputOptions = {},
+      ...inputOptions
+    } = build
 
     // unset the `output.file` option once `indexHtmlPath` is declared,
     // or else Rollup throws an error since multiple chunks are generated.
@@ -445,7 +450,7 @@ async function buildWithContext(ctx: BuildContext): Promise<BuildResult[]> {
             if (i === 0) {
               await fs.emptyDir(outDir)
             }
-            if (emitIndex) {
+            if (emitIndex && writeBuild) {
               await fs.writeFile(indexHtmlPath, html)
             }
           }
@@ -453,7 +458,7 @@ async function buildWithContext(ctx: BuildContext): Promise<BuildResult[]> {
       ]
     })
 
-    await bundle[write ? 'write' : 'generate']({
+    await bundle[writeBuild ? 'write' : 'generate']({
       dir: assetsDir,
       format: 'es',
       sourcemap,
@@ -466,7 +471,7 @@ async function buildWithContext(ctx: BuildContext): Promise<BuildResult[]> {
       ...outputOptions
     })
 
-    if (write && !silent) {
+    if (writeBuild && !silent) {
       const printFileInfo = (
         filePath: string,
         content: string | Uint8Array,
@@ -610,7 +615,7 @@ function createEmitPlugin(
  */
 function getIndexHtmlOutputPath({ input, output }: Build, outDir: string) {
   return input === 'index.html'
-    ? path.resolve(outDir, output.file || input)
+    ? path.resolve(outDir, (output && output.file) || input)
     : ''
 }
 

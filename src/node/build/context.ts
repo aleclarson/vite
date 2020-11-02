@@ -11,9 +11,11 @@ import { createResolver, InternalResolver } from '../resolver'
 
 export interface Build extends InputOptions {
   input: InputOption
-  output: OutputOptions
+  output?: OutputOptions
   /** Runs before global post-build hooks. */
   onResult?: PostBuildHook
+  /** Builds can opt out of writing by setting this to false. */
+  write?: boolean
 }
 
 export interface BuildResult {
