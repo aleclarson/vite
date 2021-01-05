@@ -299,7 +299,7 @@ export function emptyDir(dir: string) {
 
 export function crawlDir(
   root: string,
-  onFile: (file: string, name: string) => void
+  onFile: (file: string, name: string, parent: string) => void
 ) {
   const recurse = (parent: string) =>
     fs.readdirSync(path.join(root, parent)).forEach((name) => {
@@ -308,7 +308,7 @@ export function crawlDir(
       if (stat.isDirectory()) {
         recurse(child)
       } else {
-        onFile(child, name)
+        onFile(child, name, parent)
       }
     })
 
