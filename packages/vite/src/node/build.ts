@@ -321,8 +321,51 @@ async function doBuild(
     ? resolveExternal(resolveSSRExternal(config), userExternal)
     : userExternal
 
-  const rollup = require('rollup') as typeof Rollup
+  if (options.write) {
+    // warn if outDir is outside of root
+    if (fs.existsSync(outDir)) {
+      const inferEmpty = options.emptyOutDir === null
+      if (
+        options.emptyOutDir ||
+        (inferEmpty && normalizePath(outDir).startsWith(config.root + '/'))
+      ) {
+        emptyDir(outDir)
+      } else if (inferEmpty) {
+        config.logger.warn(
+          chalk.yellow(
+            `\n${chalk.bold(`(!)`)} outDir ${chalk.white.dim(
+              outDir
+            )} is not inside project root and will not be emptied.\n` +
+              `Use --emptyOutDir to override.\n`
+          )
+        )
+      }
+    }
+    if (fs.existsSync(publicDir)) {
+      const { getPublicHash } = options
 
+      const dirs = new Set<string>()
+      const ensureDir = (dir: string) =>
+        dirs.has(dir) || (dirs.add(dir), fs.mkdirSync(dir, { recursive: true }))
+
+      crawlDir(publicDir, (file, name, parent) => {
+        const srcFile = path.join(publicDir, file)
+        const assetHash = getPublicHash(srcFile)
+
+        let outFile = file
+        if (assetHash) {
+          const assetExt = path.extname(name)
+          outFile = file.slice(0, -assetExt.length) + '.' + assetHash + assetExt
+        }
+
+        ensureDir(path.join(outDir, parent))
+        fs.copyFileSync(srcFile, path.join(outDir, outFile))
+        config.publicUrls['/' + slash(file)] = '/' + slash(outFile)
+      })
+    }
+  }
+
+  const rollup = require('rollup') as typeof Rollup
   try {
     const bundle = await rollup.rollup({
       input,
@@ -371,59 +414,6 @@ async function doBuild(
         inlineDynamicImports: ssr && typeof input === 'string',
         ...output
       })
-    }
-
-    if (options.write) {
-      // warn if outDir is outside of root
-      if (fs.existsSync(outDir)) {
-        const inferEmpty = options.emptyOutDir === null
-        if (
-          options.emptyOutDir ||
-          (inferEmpty && normalizePath(outDir).startsWith(config.root + '/'))
-        ) {
-          emptyDir(outDir)
-        } else if (inferEmpty) {
-          config.logger.warn(
-            chalk.yellow(
-              `\n${chalk.bold(`(!)`)} outDir ${chalk.white.dim(
-                outDir
-              )} is not inside project root and will not be emptied.\n` +
-                `Use --emptyOutDir to override.\n`
-            )
-          )
-        }
-      }
-      if (fs.existsSync(publicDir)) {
-        const { getPublicHash } = options
-        const publicMap: { [file: string]: string } = {}
-
-        const dirs = new Set<string>()
-        const ensureDir = (dir: string) =>
-          dirs.has(dir) ||
-          (dirs.add(dir), fs.mkdirSync(dir, { recursive: true }))
-
-        crawlDir(publicDir, (file, name, parent) => {
-          const srcFile = path.join(publicDir, file)
-          const assetHash = getPublicHash(srcFile)
-
-          let outFile = file
-          if (assetHash) {
-            const assetExt = path.extname(name)
-            outFile =
-              file.slice(0, -assetExt.length) + '.' + assetHash + assetExt
-          }
-
-          ensureDir(path.join(outDir, parent))
-          fs.copyFileSync(srcFile, path.join(outDir, outFile))
-          publicMap['/' + slash(file)] = '/' + slash(outFile)
-        })
-
-        for (const plugin of config.plugins) {
-          if (plugin.assetsCopied) {
-            plugin.assetsCopied(publicMap)
-          }
-        }
-      }
     }
 
     // resolve lib mode outputs

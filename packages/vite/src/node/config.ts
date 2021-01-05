@@ -22,6 +22,7 @@ import { resolvePlugin } from './plugins/resolve'
 import { createLogger, Logger, LogLevel } from './logger'
 import { DepOptimizationOptions } from './optimizer'
 import { createFilter } from '@rollup/pluginutils'
+import { checkPublicFiles } from './plugins/asset'
 
 const debug = createDebugger('vite:config')
 
@@ -139,6 +140,7 @@ export type ResolvedConfig = Readonly<
     build: Required<BuildOptions>
     assetsInclude: (file: string) => boolean
     logger: Logger
+    publicUrls: { [file: string]: string }
   }
 >
 
@@ -256,7 +258,8 @@ export async function resolveConfig(
     assetsInclude(file: string) {
       return DEFAULT_ASSETS_RE.test(file) || assetsFilter(file)
     },
-    logger: createLogger(config.logLevel, config.clearScreen)
+    logger: createLogger(config.logLevel, config.clearScreen),
+    publicUrls: command == 'serve' ? checkPublicFiles(resolvedRoot) : {}
   }
 
   resolved.plugins = await resolvePlugins(

@@ -7,7 +7,7 @@ import { cleanUrl, isExternalUrl, isDataUrl, generateCodeFrame } from '../utils'
 import { ResolvedConfig } from '../config'
 import slash from 'slash'
 import MagicString from 'magic-string'
-import { assetUrlRE, checkPublicFiles, urlToBuiltUrl } from './asset'
+import { assetUrlRE, urlToBuiltUrl } from './asset'
 import { isCSSRequest, chunkToEmittedCssFileMap } from './css'
 import { polyfillId } from './dynamicImportPolyfill'
 import { AttributeNode, NodeTransform, NodeTypes } from '@vue/compiler-dom'
@@ -66,13 +66,8 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
   const processedHtml = new Map<string, string>()
   const isExcludedUrl = (url: string) => isExternalUrl(url) || isDataUrl(url)
 
-  let publicMap = checkPublicFiles(config.root)
   return {
     name: 'vite:build-html',
-
-    assetsCopied(_publicMap) {
-      publicMap = _publicMap
-    },
 
     async transform(html, id) {
       if (id.endsWith('.html')) {
@@ -127,7 +122,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
               typeAttr && typeAttr.value && typeAttr.value.content === 'module'
 
             const url = srcAttr && srcAttr.value && srcAttr.value.content
-            const publicUrl = url && publicMap[url]
+            const publicUrl = url && config.publicUrls[url]
             if (publicUrl) {
               // referencing public dir url, prefix with base
               s.overwrite(
@@ -161,7 +156,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
                 assetAttrs.includes(p.name)
               ) {
                 const url = p.value.content
-                const publicUrl = publicMap[url]
+                const publicUrl = config.publicUrls[url]
                 if (publicUrl) {
                   s.overwrite(
                     p.value.loc.start.offset,
