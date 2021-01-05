@@ -61,7 +61,7 @@
     "yorkie": "^2.0.0",
     "rollup": "^2.57.0",
     "esbuild": "^0.13.2",
-    "vite": "workspace:*"
+    "vite": "npm:@alloc/vite@*"
   },
   "gitHooks": {
     "pre-commit": "lint-staged --concurrent false",
@@ -81,7 +81,7 @@
   "packageManager": "pnpm",
   "pnpm": {
     "overrides": {
-      "vite": "workspace:*",
+      "vite": "npm:@alloc/vite@*",
       "@vitejs/plugin-vue": "workspace:*"
     }
   }

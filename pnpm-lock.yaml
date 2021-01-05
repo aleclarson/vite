@@ -1,7 +1,7 @@
 lockfileVersion: 5.3
 
 overrides:
-  vite: workspace:*
+  vite: npm:@alloc/vite@*
   '@vitejs/plugin-vue': workspace:*
 
 importers:
@@ -39,7 +39,7 @@ importers:
       ts-jest: ^27.0.5
       ts-node: ^10.1.0
       typescript: ~4.4.3
-      vite: workspace:*
+      vite: npm:@alloc/vite@*
       vitepress: ^0.19.2
       yorkie: ^2.0.0
     devDependencies:
