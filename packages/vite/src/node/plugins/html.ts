@@ -142,6 +142,8 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
                 js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
                 shouldRemove = true
               }
+            } else if (url && !isExcludedUrl(url)) {
+              assetUrls.push(srcAttr)
             }
           }
 
