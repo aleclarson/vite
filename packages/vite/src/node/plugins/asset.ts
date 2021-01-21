@@ -196,12 +196,21 @@ export async function urlToBuiltUrl(
   config: ResolvedConfig,
   pluginContext: PluginContext
 ): Promise<string> {
+  url = (await pluginContext.resolve(url, importer))?.id || url
+
+  // The resolving plugin wants to force its own url.
+  if (url.startsWith('!')) {
+    return url.slice(1)
+  }
+
   if (checkPublicFile(url, config.root)) {
     return config.build.base + url.slice(1)
   }
+
   const file = url.startsWith('/')
     ? path.join(config.root, url)
     : path.join(path.dirname(importer), url)
+
   return fileToBuiltUrl(
     file,
     config,
