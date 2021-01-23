@@ -245,16 +245,7 @@ export async function resolveConfig(
     config.base = config.build.base
   }
 
-  let BASE_URL = config.base || '/'
-  if (!BASE_URL.startsWith('/') || !BASE_URL.endsWith('/')) {
-    logger.warn(
-      chalk.bold.yellow(
-        `(!) "base" config option should start and end with "/".`
-      )
-    )
-    if (!BASE_URL.startsWith('/')) BASE_URL = '/' + BASE_URL
-    if (!BASE_URL.endsWith('/')) BASE_URL = BASE_URL + '/'
-  }
+  const BASE_URL = config.base || '/'
 
   const resolvedBuildOptions = resolveBuildOptions(config.build)
 
