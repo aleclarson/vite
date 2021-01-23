@@ -59,6 +59,7 @@ export const assetAttrsConfig: Record<string, string[]> = {
   link: ['href'],
   video: ['src', 'poster'],
   source: ['src'],
+  script: ['src'],
   img: ['src'],
   image: ['xlink:href', 'href'],
   use: ['xlink:href', 'href']
@@ -125,8 +126,7 @@ function formatParseError(e: any, id: string, html: string): Error {
 export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
   const [preHooks, postHooks] = resolveHtmlTransforms(config.plugins)
   const processedHtml = new Map<string, string>()
-  const isExcludedUrl = (url: string) =>
-    isExternalUrl(url) || isDataUrl(url) || checkPublicFile(url, config.root)
+  const isExcludedUrl = (url: string) => isExternalUrl(url) || isDataUrl(url)
 
   return {
     name: 'vite:build-html',
@@ -137,94 +137,78 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
         // pre-transform
         html = await applyHtmlTransforms(html, publicPath, id, preHooks)
 
+        const assetNodes: ElementNode[] = []
+        await traverseHtml(html, id, (node) => {
+          node.type === NodeTypes.ELEMENT &&
+            assetAttrsConfig[node.tag] &&
+            assetNodes.push(node)
+        })
+
         let js = ''
-        const s = new MagicString(html)
-        const assetUrls: AttributeNode[] = []
         let inlineModuleIndex = -1
 
-        await traverseHtml(html, id, (node) => {
-          if (node.type !== NodeTypes.ELEMENT) {
-            return
-          }
+        const s = new MagicString(html)
 
+        for (const node of assetNodes) {
           let shouldRemove = false
-
-          // script tags
-          if (node.tag === 'script') {
-            const { src, isModule } = getScriptInfo(node)
-
-            const url = src && src.value && src.value.content
-            if (url && checkPublicFile(url, config.root)) {
-              // referencing public dir url, prefix with base
-              s.overwrite(
-                src!.value!.loc.start.offset,
-                src!.value!.loc.end.offset,
-                config.base + url.slice(1)
-              )
-            }
-
-            if (isModule) {
-              inlineModuleIndex++
-              if (url && !isExcludedUrl(url)) {
-                // <script type="module" src="..."/>
-                // add it as an import
-                js += `\nimport ${JSON.stringify(url)}`
-                shouldRemove = true
-              } else if (node.children.length) {
-                // <script type="module">...</script>
-                js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
-                shouldRemove = true
-              }
-            }
-          }
 
           // For asset references in index.html, also generate an import
           // statement for each - this will be handled by the asset plugin
           const assetAttrs = assetAttrsConfig[node.tag]
-          if (assetAttrs) {
-            for (const p of node.props) {
-              if (
-                p.type === NodeTypes.ATTRIBUTE &&
-                p.value &&
-                assetAttrs.includes(p.name)
-              ) {
-                const url = p.value.content
-                if (!isExcludedUrl(url)) {
-                  if (node.tag === 'link' && isCSSRequest(url)) {
-                    // CSS references, convert to import
-                    js += `\nimport ${JSON.stringify(url)}`
-                    shouldRemove = true
-                  } else {
-                    assetUrls.push(p)
-                  }
-                } else if (checkPublicFile(url, config.root)) {
-                  s.overwrite(
-                    p.value.loc.start.offset,
-                    p.value.loc.end.offset,
-                    config.base + url.slice(1)
-                  )
-                }
+          const assetRefs = node.props.filter(
+            (p) => p.type === NodeTypes.ATTRIBUTE && assetAttrs.includes(p.name)
+          ) as AttributeNode[]
+
+          const isModule = node.tag === 'script' && getScriptInfo(node).isModule
+          if (isModule) {
+            inlineModuleIndex++
+
+            // <script type="module">...</script>
+            if (!assetRefs.length && node.children.length) {
+              js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
+              shouldRemove = true
+            }
+          }
+
+          for (const assetRef of assetRefs) {
+            const url = assetRef.value?.content
+            if (!url || isExcludedUrl(url)) {
+              continue
+            }
+
+            // check for excluded url after resolving
+            if (!checkPublicFile(url, config.root)) {
+              // <script type="module" src="..."/>
+              if (isModule) {
+                js += `\nimport ${JSON.stringify(url)}`
+                shouldRemove = true
+              }
+              // CSS references
+              else if (node.tag === 'link' && isCSSRequest(url)) {
+                js += `\nimport ${JSON.stringify(url)}`
+                shouldRemove = true
+              }
+            }
+
+            // for each encountered asset url, rewrite original html so that it
+            // references the post-build location.
+            if (!shouldRemove) {
+              const builtUrl = await urlToBuiltUrl(url, id, config, this)
+              if (url !== builtUrl) {
+                const { loc } = assetRef.value!
+                s.overwrite(
+                  loc.start.offset,
+                  loc.end.offset,
+                  JSON.stringify(builtUrl)
+                )
               }
             }
           }
 
+          // removed tags will be injected at the end
           if (shouldRemove) {
-            // remove the script tag from the html. we are going to inject new
-            // ones in the end.
             s.remove(node.loc.start.offset, node.loc.end.offset)
           }
-        })
-
-        // for each encountered asset url, rewrite original html so that it
-        // references the post-build location.
-        for (const attr of assetUrls) {
-          const value = attr.value!
-          const url = await urlToBuiltUrl(value.content, id, config, this)
-          s.overwrite(
-            value.loc.start.offset,
-            value.loc.end.offset,
-            JSON.stringify(url)
-          )
         }
 
         processedHtml.set(id, s.toString())
