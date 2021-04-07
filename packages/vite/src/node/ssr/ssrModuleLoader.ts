@@ -83,6 +83,7 @@ async function instantiateModule(
   mod.ssrModule = ssrModule
 
   const {
+    logger,
     isProduction,
     resolve: { dedupe },
     root
@@ -156,7 +157,7 @@ async function instantiateModule(
   const { map } = result
   if (map?.mappings) {
     if (mod.file) {
-      await injectSourcesContent(map, mod.file, moduleGraph)
+      await injectSourcesContent(map, mod.file, logger, moduleGraph)
     }
 
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
@@ -187,14 +188,11 @@ async function instantiateModule(
     try {
       e.stack = ssrRewriteStacktrace(e, moduleGraph)
     } catch {}
-    server.config.logger.error(
-      `Error when evaluating SSR module ${url}:\n\n${e.stack}`,
-      {
-        timestamp: true,
-        clear: server.config.clearScreen,
-        error: e
-      }
-    )
+    logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
+      timestamp: true,
+      clear: server.config.clearScreen,
+      error: e
+    })
     throw e
   }
 
