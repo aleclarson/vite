@@ -27,9 +27,12 @@
   },
   "homepage": "https://github.com/vitejs/vite/tree/main/#readme",
   "scripts": {
+    "dev": "run-p dev-client dev-node",
+    "dev-client": "tsc -w --incremental -p src/client",
+    "dev-node": "tsc -w --incremental -p src/node",
     "build": "run-p build-client build-node",
-    "build-client": "tsc --incremental --p src/client",
-    "build-node": "tsc --incremental --p src/node",
+    "build-client": "tsc -p src/client",
+    "build-node": "tsc -p src/node",
     "format": "prettier --write --parser typescript \"src/**/*.ts\"",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s --commit-path .",
     "release": "node ../../scripts/release.js"
