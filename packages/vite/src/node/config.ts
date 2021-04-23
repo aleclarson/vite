@@ -736,6 +736,7 @@ async function bundleConfigFile(
     platform: 'node',
     bundle: true,
     format: mjs ? 'esm' : 'cjs',
+    sourcemap: 'inline',
     plugins: [
       {
         name: 'externalize-deps',
