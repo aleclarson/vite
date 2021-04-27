@@ -2,9 +2,15 @@ import { promises as fs } from 'fs'
 import path from 'path'
 
 export async function injectSourcesContent(
-  map: { sources: string[]; sourcesContent?: string[]; sourceRoot?: string },
+  map: {
+    file?: string
+    sources: string[]
+    sourcesContent?: string[]
+    sourceRoot?: string
+  },
   file: string
 ) {
+  map.file = file
   try {
     var sourceRoot = await fs.realpath(
       path.resolve(path.dirname(file), map.sourceRoot || '')
