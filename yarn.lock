@@ -7325,6 +7325,16 @@ vite-react-jsx@^1.1.0:
     "@babel/plugin-transform-react-jsx" "^7.14.3"
     resolve "^1.20.0"
 
+"vite@link:packages/vite":
+  version "2.3.4"
+  dependencies:
+    esbuild "^0.11.23"
+    postcss "^8.2.10"
+    resolve "^1.19.0"
+    rollup "^2.38.5"
+  optionalDependencies:
+    fsevents "~2.3.1"
+
 vitepress@^0.12.2:
   version "0.12.2"
   resolved "https://registry.yarnpkg.com/vitepress/-/vitepress-0.12.2.tgz#5e53c78a3ca045f8513cd4bedf2e280f98d48f61"
