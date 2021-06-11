@@ -1,64 +1,80 @@
-# @vitejs/plugin-react-refresh [![npm](https://img.shields.io/npm/v/@vitejs/plugin-react-refresh.svg)](https://npmjs.com/package/@vitejs/plugin-react-refresh)
+# @vitejs/plugin-react [![npm](https://img.shields.io/npm/v/@vitejs/plugin-react.svg)](https://npmjs.com/package/@vitejs/plugin-react)
 
-Provides [React Refresh](https://www.npmjs.com/package/react-refresh) support for Vite.
+The all-in-one Vite plugin for React projects.
+
+- enable [Fast Refresh](https://www.npmjs.com/package/react-refresh) in development
+- use the [automatic JSX runtime](https://github.com/alloc/vite-react-jsx#faq)
+- avoid manual `import React` in `.jsx` and `.tsx` modules
+- use custom Babel plugins/presets
 
 ```js
 // vite.config.js
-import reactRefresh from '@vitejs/plugin-react-refresh'
+import reactPlugin from '@vitejs/plugin-react'
 
 export default {
-  plugins: [reactRefresh()]
+  plugins: [reactPlugin()]
 }
 ```
 
-## Specifying Additional Parser Plugins
+## Babel configuration
 
-If you are using ES syntax that are still in proposal status (e.g. class properties), you can selectively enable them via the `parserPlugins` option:
+The `babel` option lets you add plugins, presets, and [other configuration](https://babeljs.io/docs/en/options) to the Babel transformation performed on each JSX/TSX file.
 
 ```js
-export default {
-  plugins: [
-    reactRefresh({
-      parserPlugins: ['classProperties', 'classPrivateProperties']
-    })
-  ]
-}
+reactPlugin({
+  babel: {
+    presets: [...],
+    // Your plugins run before any built-in transform (eg: Fast Refresh)
+    plugins: [...],
+    // Use .babelrc files
+    babelrc: true,
+    // Use babel.config.js files
+    configFile: true,
+  }
+})
 ```
 
-## Specifying Additional Babel Plugins
+### Proposed syntax
+
+If you are using ES syntax that are still in proposal status (e.g. class properties), you can selectively enable them with the `babel.parserOpts.plugins` option:
 
 ```js
-export default {
-  plugins: [reactRefresh({
-    plugins: ['@emotion/babel-plugin']
-  })]
-}
+reactPlugin({
+  babel: {
+    parserOpts: {
+      plugins: ['decorators-legacy']
+    }
+  }
+})
 ```
 
-[Full list of Babel parser plugins](https://babeljs.io/docs/en/babel-parser#ecmascript-proposalshttpsgithubcombabelproposals).
+This option does not enable _code transformation_. That is handled by ESBuild.
 
-### Notes
+**Note:** TypeScript syntax is handled automatically.
 
-- If using TSX, any TS-supported syntax will already be transpiled away so you won't need to specify them here.
+Here's the [complete list of Babel parser plugins](https://babeljs.io/docs/en/babel-parser#ecmascript-proposalshttpsgithubcombabelproposals).
 
-- This option only enables the plugin to parse these syntax - it does not perform any transpilation since this plugin is dev-only.
+## Middleware mode
 
-- If you wish to transpile the syntax for production, you will need to configure the transform separately using [@rollup/plugin-babel](https://github.com/rollup/plugins/tree/master/packages/babel) as a build-only plugin.
-
-## Middleware Mode Notes
-
-When Vite is launched in **Middleware Mode**, you need to make sure your entry `index.html` file is transformed with `ViteDevServer.transformIndexHtml`. Otherwise, you may get an error prompting `Uncaught Error: @vitejs/plugin-react-refresh can't detect preamble. Something is wrong.`
-
-To mitigate this issue, you can explicitly transform your `index.html` like this when configuring your express server:
+In [middleware mode](https://vitejs.dev/config/#server-middlewaremode), you should make sure your entry `index.html` file is transformed by Vite. Here's an example for an Express server:
 
 ```js
 app.get('/', async (req, res, next) => {
   try {
     let html = fs.readFileSync(path.resolve(root, 'index.html'), 'utf-8')
+
+    // Transform HTML using Vite plugins.
     html = await viteServer.transformIndexHtml(req.url, html)
+
     res.send(html)
   } catch (e) {
     return next(e)
   }
 })
+```
+
+Otherwise, you'll probably get this error:
+
+```
+Uncaught Error: @vitejs/plugin-react can't detect preamble. Something is wrong.
 ```
