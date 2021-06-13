@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import * as convertSourceMap from 'convert-source-map'
 import { ViteDevServer } from '..'
 import { cleanUrl, resolveFrom, unwrapId } from '../utils'
 import { rebindErrorStacktrace, ssrRewriteStacktrace } from './ssrStacktrace'
@@ -11,6 +12,7 @@ import {
   ssrDynamicImportKey
 } from './ssrTransform'
 import { transformRequest } from '../server/transformRequest'
+import { injectSourcesContent } from '../server/sourcemap'
 
 interface SSRContext {
   global: NodeJS.Global
@@ -137,6 +139,20 @@ async function instantiateModule(
     }
   }
 
+  const { map } = result
+  if (map) {
+    if (mod.file) {
+      map.file = mod.file
+      if (map.mappings && !map.sourcesContent) {
+        await injectSourcesContent(map, mod.file, true)
+      }
+    }
+    result.code =
+      convertSourceMap.removeMapFileComments(result.code) +
+      '\n' +
+      convertSourceMap.fromObject(map).toComment()
+  }
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     const AsyncFunction = async function () {}.constructor as typeof Function
@@ -147,7 +163,8 @@ async function instantiateModule(
       ssrImportKey,
       ssrDynamicImportKey,
       ssrExportAllKey,
-      result.code + `\n//# sourceURL=${mod.url}`
+      // Strip the newlines prepended by ssrTransform
+      result.code.slice(2) + `\n//# sourceURL=${mod.url}`
     )
     await initModule(
       context.global,

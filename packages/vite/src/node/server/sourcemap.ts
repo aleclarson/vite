@@ -17,7 +17,8 @@ interface SourceMapLike {
 export async function injectSourcesContent(
   map: SourceMapLike,
   file: string,
-  logger: Logger
+  logger: Logger,
+  useResolvedSources?: boolean
 ): Promise<void> {
   let sourceRoot: string | undefined
   try {
@@ -29,11 +30,14 @@ export async function injectSourcesContent(
 
   const missingSources: string[] = []
   map.sourcesContent = await Promise.all(
-    map.sources.map((sourcePath) => {
+    map.sources.map((sourcePath, i) => {
       if (sourcePath) {
         sourcePath = decodeURI(sourcePath)
         if (sourceRoot) {
           sourcePath = path.resolve(sourceRoot, sourcePath)
+        }
+        if (useResolvedSources) {
+          map.sources[i] = sourcePath
         }
         return fs.readFile(sourcePath, 'utf-8').catch(() => {
           missingSources.push(sourcePath)
