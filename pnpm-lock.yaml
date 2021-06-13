@@ -624,6 +624,7 @@ importers:
   packages/vite:
     specifiers:
       '@ampproject/remapping': ^1.0.1
+      '@babel/code-frame': ^7.14.5
       '@rollup/plugin-alias': ^3.1.5
       '@rollup/plugin-commonjs': ^21.0.0
       '@rollup/plugin-dynamic-import-vars': ^1.4.0
@@ -631,6 +632,7 @@ importers:
       '@rollup/plugin-node-resolve': 13.0.5
       '@rollup/plugin-typescript': ^8.2.5
       '@rollup/pluginutils': ^4.1.1
+      '@types/babel__code-frame': ^7.0.2
       '@types/convert-source-map': ^1.5.2
       '@types/debug': ^4.1.7
       '@types/es-module-lexer': ^0.3.0
@@ -693,6 +695,7 @@ importers:
       types: link:./types
       ws: ^7.5.5
     dependencies:
+      '@babel/code-frame': 7.14.5
       esbuild: 0.13.2
       postcss: 8.3.8
       resolve: 1.20.0
@@ -708,6 +711,7 @@ importers:
       '@rollup/plugin-node-resolve': 13.0.5_rollup@2.57.0
       '@rollup/plugin-typescript': 8.2.5_283b0408a190511f1240c12469d64cd5
       '@rollup/pluginutils': 4.1.1
+      '@types/babel__code-frame': 7.0.3
       '@types/convert-source-map': 1.5.2
       '@types/debug': 4.1.7
       '@types/es-module-lexer': 0.3.0
@@ -1964,6 +1968,10 @@ packages:
 
   /@types/asn1js/2.0.2:
     resolution: {integrity: sha512-t4YHCgtD+ERvH0FyxvNlYwJ2ezhqw7t+Ygh4urQ7dJER8i185JPv6oIM3ey5YQmGN6Zp9EMbpohkjZi9t3UxwA==}
+    dev: true
+
+  /@types/babel__code-frame/7.0.3:
+    resolution: {integrity: sha512-2TN6oiwtNjOezilFVl77zwdNPwQWaDBBCCWWxyo1ctiO3vAtd7H/aB/CBJdw9+kqq3+latD0SXoedIuHySSZWw==}
     dev: true
 
   /@types/babel__core/7.1.16:

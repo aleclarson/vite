@@ -383,8 +383,7 @@ export async function createServer(
     },
     ssrFixStacktrace(e) {
       if (e.stack) {
-        const stacktrace = ssrRewriteStacktrace(e.stack, moduleGraph)
-        rebindErrorStacktrace(e, stacktrace)
+        rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
       }
     },
     listen(port?: number, isRestart?: boolean) {
