@@ -21,6 +21,7 @@ interface SSRContext {
 type SSRModule = Record<string, any>
 
 const pendingModules = new Map<string, Promise<SSRModule>>()
+const pendingImports = new Map<string, Set<string>>()
 
 export async function ssrLoadModule(
   url: string,
@@ -48,7 +49,12 @@ export async function ssrLoadModule(
 
   const modulePromise = instantiateModule(url, server, context, urlStack)
   pendingModules.set(url, modulePromise)
-  modulePromise.catch(() => {}).then(() => pendingModules.delete(url))
+  modulePromise
+    .catch(() => {})
+    .then(() => {
+      pendingModules.delete(url)
+      pendingImports.delete(url)
+    })
   return modulePromise
 }
 
@@ -78,12 +84,24 @@ async function instantiateModule(
   }
   Object.defineProperty(ssrModule, '__esModule', { value: true })
 
+  // Tolerate circular imports by ensuring the module can be
+  // referenced before it's been instantiated.
+  mod.ssrModule = ssrModule
+
+  // Store the parsed dependencies while this module is loading,
+  // so dependent modules can avoid waiting on a circular import.
+  pendingImports.set(url, new Set(result.deps))
+  urlStack = urlStack.concat(url)
+
   const isExternal = (dep: string) => dep[0] !== '.' && dep[0] !== '/'
 
   await Promise.all(
     result.deps!.map((dep) => {
       if (!isExternal(dep)) {
-        return ssrLoadModule(dep, server, context, urlStack.concat(url))
+        const deps = pendingImports.get(dep)
+        if (!deps || !urlStack.some((url) => deps.has(url))) {
+          return ssrLoadModule(dep, server, context, urlStack)
+        }
       }
     })
   )
@@ -107,7 +125,7 @@ async function instantiateModule(
       if (dep.startsWith('.')) {
         dep = path.posix.resolve(path.dirname(url), dep)
       }
-      return ssrLoadModule(dep, server, context, urlStack.concat(url))
+      return ssrLoadModule(dep, server, context, urlStack)
     }
   }
 
@@ -168,8 +186,7 @@ async function instantiateModule(
     throw e
   }
 
-  mod.ssrModule = Object.freeze(ssrModule)
-  return ssrModule
+  return Object.freeze(ssrModule)
 }
 
 function nodeRequire(id: string, importer: string | null, root: string) {
