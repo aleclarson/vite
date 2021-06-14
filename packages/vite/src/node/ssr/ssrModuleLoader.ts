@@ -207,7 +207,9 @@ async function instantiateModule(
       })
     }
   } catch (e) {
-    rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
+    try {
+      rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
+    } catch {}
     logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
       timestamp: true,
       clear: server.config.clearScreen,
