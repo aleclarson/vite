@@ -2,6 +2,7 @@ import path from 'path'
 import { promises as fs } from 'fs'
 import { Logger } from '../logger'
 import { createDebugger } from '../utils'
+import { ModuleGraph } from './moduleGraph'
 
 const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:sourcemap', {
@@ -18,7 +19,7 @@ export async function injectSourcesContent(
   map: SourceMapLike,
   file: string,
   logger: Logger,
-  useResolvedSources?: boolean
+  moduleGraph?: ModuleGraph
 ): Promise<void> {
   let sourceRoot: string | undefined
   try {
@@ -28,21 +29,31 @@ export async function injectSourcesContent(
     )
   } catch {}
 
+  const needsContent = !map.sourcesContent
+  if (needsContent) {
+    map.sourcesContent = []
+  }
+
   const missingSources: string[] = []
-  map.sourcesContent = await Promise.all(
-    map.sources.map((sourcePath, i) => {
+  await Promise.all(
+    map.sources.map(async (sourcePath, i) => {
       if (sourcePath) {
-        sourcePath = decodeURI(sourcePath)
-        if (sourceRoot) {
-          sourcePath = path.resolve(sourceRoot, sourcePath)
+        const mod = await moduleGraph?.getModuleByUrl(sourcePath)
+        if (mod?.file) {
+          sourcePath = mod.file
+        } else if (sourceRoot) {
+          sourcePath = path.resolve(sourceRoot, decodeURI(sourcePath))
         }
-        if (useResolvedSources) {
+        if (moduleGraph) {
           map.sources[i] = sourcePath
         }
-        return fs.readFile(sourcePath, 'utf-8').catch(() => {
-          missingSources.push(sourcePath)
-          return null
-        })
+        if (needsContent) {
+          try {
+            map.sourcesContent![i] = await fs.readFile(sourcePath, 'utf-8')
+          } catch {
+            missingSources.push(sourcePath)
+          }
+        }
       }
       return null
     })
