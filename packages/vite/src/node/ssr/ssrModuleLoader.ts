@@ -151,40 +151,61 @@ async function instantiateModule(
     }
   }
 
+  let script = result.code
+  if (isProduction) {
+    // Strip the newlines prepended by ssrTransform
+    script = script.slice(2) + `\n//# sourceURL=${mod.url}`
+  } else {
+    script = `(function () {\n${script}\n})()`
+  }
+
   const { map } = result
-  if (map) {
+  if (map?.mappings) {
     if (mod.file) {
       map.file = mod.file
       await injectSourcesContent(map, mod.file, logger, moduleGraph)
     }
-    result.code =
-      convertSourceMap.removeMapFileComments(result.code) +
-      '\n' +
-      convertSourceMap.fromObject(map).toComment()
+
+    script += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
   const ssrImportMeta = { url }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    const AsyncFunction = async function () {}.constructor as typeof Function
-    const initModule = new AsyncFunction(
-      `global`,
-      ssrModuleExportsKey,
-      ssrImportMetaKey,
-      ssrImportKey,
-      ssrDynamicImportKey,
-      ssrExportAllKey,
-      // Strip the newlines prepended by ssrTransform
-      result.code.slice(2) + `\n//# sourceURL=${mod.url}`
-    )
-    await initModule(
-      context.global,
-      ssrModule,
-      ssrImportMeta,
-      ssrImport,
-      ssrDynamicImport,
-      ssrExportAll
-    )
+    // Use the faster `new Function` in production.
+    if (isProduction) {
+      new Function(
+        `global`,
+        ssrModuleExportsKey,
+        ssrImportMetaKey,
+        ssrImportKey,
+        ssrDynamicImportKey,
+        ssrExportAllKey,
+        script
+      )(
+        context.global,
+        ssrModule,
+        ssrImportMeta,
+        ssrImport,
+        ssrDynamicImport,
+        ssrExportAll
+      )
+    }
+    // Use the slower `vm.runInThisContext` for better sourcemap support.
+    else {
+      const sandbox: Record<string, any> = {
+        global: context.global,
+        [ssrModuleExportsKey]: ssrModule,
+        [ssrImportMetaKey]: ssrImportMeta,
+        [ssrImportKey]: ssrImport,
+        [ssrDynamicImportKey]: ssrDynamicImport,
+        [ssrExportAllKey]: ssrExportAll
+      }
+      const vm = require('vm') as typeof import('vm')
+      vm.runInNewContext(script, sandbox, {
+        filename: mod.file || mod.url,
+        columnOffset: 1
+      })
+    }
   } catch (e) {
     rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
     logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {

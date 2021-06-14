@@ -184,7 +184,8 @@ async function doTransform(
     return (mod.ssrTransformResult = await ssrTransform(
       code,
       map as SourceMap,
-      url
+      url,
+      config.isProduction
     ))
   } else {
     return (mod.transformResult = {
