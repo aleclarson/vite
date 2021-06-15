@@ -155,8 +155,6 @@ async function instantiateModule(
   if (isProduction) {
     // Strip the newlines prepended by ssrTransform
     script = script.slice(2) + `\n//# sourceURL=${mod.url}`
-  } else {
-    script = `(function () {\n${script}\n})()`
   }
 
   const { map } = result
@@ -202,8 +200,7 @@ async function instantiateModule(
       }
       const vm = require('vm') as typeof import('vm')
       vm.runInNewContext(script, sandbox, {
-        filename: mod.file || mod.url,
-        columnOffset: 1
+        filename: mod.file || mod.url
       })
     }
   } catch (e) {
