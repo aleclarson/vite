@@ -75,10 +75,9 @@ async function instantiateModule(
 
   urlStack = urlStack.concat(url)
 
-  const ssrModule = {
+  const ssrModule: any = {
     [Symbol.toStringTag]: 'Module'
   }
-  Object.defineProperty(ssrModule, '__esModule', { value: true })
 
   // Tolerate circular imports by ensuring the module can be
   // referenced before it's been instantiated.
@@ -193,6 +192,13 @@ async function instantiateModule(
       }
     )
     throw e
+  }
+
+  if (!ssrModule.__esModule) {
+    Object.defineProperty(ssrModule, '__esModule', { value: true })
+    if (!Object.getOwnPropertyDescriptor(ssrModule, 'default')) {
+      Object.defineProperty(ssrModule, 'default', { value: ssrModule })
+    }
   }
 
   return Object.freeze(ssrModule)
