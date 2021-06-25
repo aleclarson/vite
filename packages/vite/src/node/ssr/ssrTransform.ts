@@ -74,8 +74,8 @@ export async function ssrTransform(
     const importId = findFreeName(
       `import_` + path.basename(source, path.extname(source)).replace(/\W/g, '')
     )
-    s.appendLeft(
-      node.start,
+    s.appendRight(
+      node.end,
       `const ${importId} = await ${ssrImportKey}(${JSON.stringify(source)});`
     )
     return importId
@@ -182,7 +182,7 @@ export async function ssrTransform(
       isESModule = true
       const importId = defineImport(node, node.source.value as string)
       s.remove(node.start, node.end)
-      s.appendLeft(node.end, `${ssrExportAllKey}(${importId});`)
+      s.appendRight(node.end, `${ssrExportAllKey}(${importId});`)
     }
   }
 
@@ -228,7 +228,8 @@ export async function ssrTransform(
   })
 
   if (isESModule) {
-    s.prepend(
+    s.appendLeft(
+      0,
       `Object.defineProperty(${ssrModuleExportsKey}, "__esModule", {value: true});\n`
     )
   } else {
@@ -257,7 +258,7 @@ export async function ssrTransform(
         if (isModuleExports(node)) {
           s.overwrite(node.start, node.end, ssrModuleExportsKey)
           if (parent.type === 'AssignmentExpression' && parent.left === node) {
-            s.appendLeft(node.end, '.default')
+            s.appendRight(node.end, '.default')
           }
         } else if (isExportsIdent(node, parent)) {
           s.overwrite(node.start, node.end, ssrModuleExportsKey)
