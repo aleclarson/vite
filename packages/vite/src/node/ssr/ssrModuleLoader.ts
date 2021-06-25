@@ -166,7 +166,7 @@ async function instantiateModule(
     // Strip the newlines prepended by ssrTransform
     ssrModuleImpl = ssrModuleImpl.slice(2) + `\n//# sourceURL=${mod.url}`
   } else {
-    ssrModuleImpl = `(0,function(${Object.keys(
+    ssrModuleImpl = `(0,async function(${Object.keys(
       ssrArguments
     )}){\n${ssrModuleImpl}\n})`
   }
