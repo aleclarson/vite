@@ -448,7 +448,7 @@ export function tryNodeResolve(
     path.isAbsolute(importer) &&
     fs.existsSync(cleanUrl(importer))
   ) {
-    basedir = path.dirname(importer)
+    basedir = fs.realpathSync.native(path.dirname(importer))
   } else {
     basedir = root
   }
@@ -460,7 +460,7 @@ export function tryNodeResolve(
     basedir = nestedResolveFrom(nestedRoot, basedir, preserveSymlinks)
   }
 
-  const pkg = resolvePackageData(pkgId, basedir, preserveSymlinks)
+  const pkg = resolvePackageData(pkgId, basedir)
 
   if (!pkg) {
     return
@@ -603,15 +603,14 @@ const packageCache = new Map<string, PackageData>()
 
 export function resolvePackageData(
   id: string,
-  basedir: string,
-  preserveSymlinks = false
+  basedir: string
 ): PackageData | undefined {
   const cacheKey = id + basedir
   if (packageCache.has(cacheKey)) {
     return packageCache.get(cacheKey)
   }
   try {
-    const pkgPath = resolveFrom(`${id}/package.json`, basedir, preserveSymlinks)
+    const pkgPath = resolveFrom(`${id}/package.json`, basedir, true)
     return loadPackageData(pkgPath, cacheKey)
   } catch (e) {
     isDebug && debug(`${chalk.red(`[failed loading package.json]`)} ${id}`)
