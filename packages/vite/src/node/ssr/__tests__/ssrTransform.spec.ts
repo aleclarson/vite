@@ -1,7 +1,7 @@
 import { ssrTransform } from '../ssrTransform'
 
 const transform = (code: string, url?: string) =>
-  ssrTransform(code, null, url).then((res) => res.code)
+  ssrTransform(code, null, url, false).then((res) => res.code)
 
 test('default import', async () => {
   expect(await transform(`import foo from 'vue';console.log(foo.bar)`))
@@ -77,8 +77,8 @@ test('export named from', async () => {
     "Object.defineProperty(__vite_ssr_exports__, \\"__esModule\\", {value: true});
     const __vite_ssr_import_0__ = __vite_ssr_import__(\\"vue\\")
 
-    Object.defineProperty(__vite_ssr_exports__, \\"ref\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.ref }})
-    Object.defineProperty(__vite_ssr_exports__, \\"c\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.computed }})"
+    Object.defineProperty(__vite_ssr_exports__, \\"ref\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.ref }});
+    Object.defineProperty(__vite_ssr_exports__, \\"c\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.computed }});"
   `)
 })
 
@@ -88,7 +88,7 @@ test('named exports of imported binding', async () => {
     "Object.defineProperty(__vite_ssr_exports__, \\"__esModule\\", {value: true});
     const __vite_ssr_import_0__ = __vite_ssr_import__(\\"vue\\")
 
-    Object.defineProperty(__vite_ssr_exports__, \\"createApp\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.createApp }})"
+    Object.defineProperty(__vite_ssr_exports__, \\"createApp\\", { enumerable: true, configurable: true, get(){ return __vite_ssr_import_0__.createApp }});"
   `)
 })
 
@@ -171,13 +171,14 @@ test('should declare variable for imported super class', async () => {
     const Foo = __vite_ssr_import_0__.Foo;
     __vite_ssr_exports__.default = class A extends Foo {}
     class B extends Foo {}
-    Object.defineProperty(__vite_ssr_exports__, \\"B\\", { enumerable: true, configurable: true, get(){ return B }})"
+    Object.defineProperty(__vite_ssr_exports__, \\"B\\", { enumerable: true, configurable: true, get(){ return B }});"
   `)
 })
 
 test('sourcemap source', async () => {
   expect(
-    (await ssrTransform(`export const a = 1`, null, 'input.js')).map.sources
+    (await ssrTransform(`export const a = 1`, null, 'input.js', false)).map
+      .sources
   ).toStrictEqual(['input.js'])
 })
 
