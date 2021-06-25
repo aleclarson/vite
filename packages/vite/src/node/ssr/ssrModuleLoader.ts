@@ -152,7 +152,7 @@ async function instantiateModule(
 
   let ssrModuleImpl = isProduction
     ? result.code + `\n//# sourceURL=${mod.url}`
-    : `(0,function(${Object.keys(ssrArguments)}){\n${result.code}\n})`
+    : `(0,async function(${Object.keys(ssrArguments)}){\n${result.code}\n})`
 
   const { map } = result
   if (map?.mappings) {
