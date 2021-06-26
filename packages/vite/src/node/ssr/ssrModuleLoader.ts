@@ -84,8 +84,6 @@ async function instantiateModule(
   // referenced before it's been instantiated.
   mod.ssrModule = ssrModule
 
-  const isExternal = (dep: string) => dep[0] !== '.' && dep[0] !== '/'
-
   const {
     isProduction,
     resolve: { dedupe },
@@ -104,7 +102,7 @@ async function instantiateModule(
   }
 
   const ssrImport = async (dep: string) => {
-    if (isExternal(dep)) {
+    if (dep[0] !== '.' && dep[0] !== '/') {
       return nodeRequire(dep, mod.file, resolveOptions)
     }
     dep = unwrapId(dep)
@@ -120,7 +118,7 @@ async function instantiateModule(
   const ssrDynamicImport = (dep: string) => {
     // #3087 dynamic import vars is ignored at rewrite import path,
     // so here need process relative path
-    if (!isExternal(dep) && dep.startsWith('.')) {
+    if (dep[0] === '.') {
       dep = path.posix.resolve(path.dirname(url), dep)
     }
     return ssrImport(dep)
