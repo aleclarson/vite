@@ -192,33 +192,34 @@ export interface InlineConfig extends UserConfig {
   envFile?: false
 }
 
-export type ResolvedConfig = Readonly<
-  Omit<
-    UserConfig,
-    'plugins' | 'alias' | 'dedupe' | 'assetsInclude' | 'optimizeDeps'
-  > & {
-    configFile: string | undefined
-    configFileDependencies: string[]
-    inlineConfig: InlineConfig
-    root: string
-    base: string
-    publicDir: string
-    command: 'build' | 'serve'
-    mode: string
-    isProduction: boolean
-    env: Record<string, any>
-    resolve: ResolveOptions & {
-      alias: Alias[]
+export interface ResolvedConfig
+  extends Readonly<
+    Omit<
+      UserConfig,
+      'plugins' | 'alias' | 'dedupe' | 'assetsInclude' | 'optimizeDeps'
+    > & {
+      configFile: string | undefined
+      configFileDependencies: string[]
+      inlineConfig: InlineConfig
+      root: string
+      base: string
+      publicDir: string
+      command: 'build' | 'serve'
+      mode: string
+      isProduction: boolean
+      env: Record<string, any>
+      resolve: ResolveOptions & {
+        alias: Alias[]
+      }
+      plugins: readonly Plugin[]
+      server: ResolvedServerOptions
+      build: ResolvedBuildOptions
+      assetsInclude: (file: string) => boolean
+      logger: Logger
+      createResolver: (options?: Partial<InternalResolveOptions>) => ResolveFn
+      optimizeDeps: Omit<DepOptimizationOptions, 'keepNames'>
     }
-    plugins: readonly Plugin[]
-    server: ResolvedServerOptions
-    build: ResolvedBuildOptions
-    assetsInclude: (file: string) => boolean
-    logger: Logger
-    createResolver: (options?: Partial<InternalResolveOptions>) => ResolveFn
-    optimizeDeps: Omit<DepOptimizationOptions, 'keepNames'>
-  }
->
+  > {}
 
 export type ResolveFn = (
   id: string,
