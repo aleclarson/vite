@@ -7,6 +7,7 @@ export { send } from './server/send'
 export { createLogger } from './logger'
 export { transformWithEsbuild } from './plugins/esbuild'
 export { resolvePackageData, resolvePackageEntry } from './plugins/resolve'
+export { applyHtmlTransforms, resolveHtmlTransforms } from './plugins/html'
 export { normalizePath } from './utils'
 
 // additional types
