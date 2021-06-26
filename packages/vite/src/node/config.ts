@@ -192,9 +192,23 @@ export interface InlineConfig extends UserConfig {
   envFile?: false
 }
 
+/**
+ * Configuration meant for co-operation between plugins, which is never set
+ * by the user config. Instead, these properties are set from the `config` hook.
+ *
+ * With interface merging, plugins can declare their own properties.
+ *
+ *     declare module 'vite' {
+ *       export interface InternalConfig {
+ *         helloWorld?: boolean
+ *       }
+ *     }
+ */
+export interface InternalConfig extends UserConfig {}
+
 export type ResolvedConfig = Readonly<
   Omit<
-    UserConfig,
+    InternalConfig,
     'plugins' | 'alias' | 'dedupe' | 'assetsInclude' | 'optimizeDeps'
   > & {
     configFile: string | undefined
