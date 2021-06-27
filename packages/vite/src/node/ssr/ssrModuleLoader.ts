@@ -127,15 +127,6 @@ async function instantiateModule(
     return moduleGraph.urlToModuleMap.get(dep)?.ssrModule
   }
 
-  const ssrDynamicImport = (dep: string) => {
-    // #3087 dynamic import vars is ignored at rewrite import path,
-    // so here need process relative path
-    if (dep[0] === '.') {
-      dep = path.posix.resolve(path.dirname(url), dep)
-    }
-    return ssrImport(dep)
-  }
-
   function ssrExportAll(sourceModule: any) {
     for (const key in sourceModule) {
       if (key !== 'default') {
@@ -156,7 +147,7 @@ async function instantiateModule(
     [ssrModuleExportsKey]: ssrModule,
     [ssrImportMetaKey]: ssrImportMeta,
     [ssrImportKey]: ssrImport,
-    [ssrDynamicImportKey]: ssrDynamicImport,
+    [ssrDynamicImportKey]: ssrImport,
     [ssrExportAllKey]: ssrExportAll
   }
 
@@ -222,13 +213,18 @@ function nodeRequire(
   importer: string | null,
   resolveOptions: InternalResolveOptions
 ) {
-  const unhookNodeResolve = hookNodeResolve((id, parent) => {
-    const resolved = tryNodeResolve(id, parent.id, resolveOptions, false)
-    if (!resolved) {
-      throw Error(`Cannot find module '${id}' imported from '${parent.id}'`)
+  const unhookNodeResolve = hookNodeResolve(
+    (nodeResolve) => (id, parent, isMain, options) => {
+      if (id[0] === '.' || Module.builtinModules.includes(id)) {
+        return nodeResolve(id, parent, isMain, options)
+      }
+      const resolved = tryNodeResolve(id, parent.id, resolveOptions, false)
+      if (!resolved) {
+        throw Error(`Cannot find module '${id}' imported from '${parent.id}'`)
+      }
+      return resolved.id
     }
-    return resolved.id
-  })
+  )
 
   const loadModule = Module.createRequire(importer || resolveOptions.root + '/')
   try {
