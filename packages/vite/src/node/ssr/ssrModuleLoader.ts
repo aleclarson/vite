@@ -94,7 +94,7 @@ async function instantiateModule(
   const {
     isProduction,
     logger,
-    resolve: { dedupe, preserveSymlinks },
+    resolve: { dedupe },
     root
   } = server.config
 
@@ -106,7 +106,6 @@ async function instantiateModule(
     // Disable "module" condition.
     isRequire: true,
     mainFields: ['main'],
-    preserveSymlinks,
     root
   }
 
