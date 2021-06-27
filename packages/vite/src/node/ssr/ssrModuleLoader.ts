@@ -178,7 +178,7 @@ async function instantiateModule(
         displayErrors: false
       })
     }
-    ssrModuleInit(...Object.values(ssrArguments))
+    await ssrModuleInit(...Object.values(ssrArguments))
   } catch (e) {
     try {
       e.stack = ssrRewriteStacktrace(e, moduleGraph)
