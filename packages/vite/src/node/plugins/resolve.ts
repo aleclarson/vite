@@ -392,7 +392,6 @@ export function tryNodeResolve(
   if (!resolved) {
     return
   }
-  resolved = fs.realpathSync.native(resolved)
   // link id to pkg for browser field mapping check
   idToPkgMap.set(resolved, pkg)
   if (isBuild) {
