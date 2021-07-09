@@ -150,10 +150,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
   const [preHooks, postHooks] = resolveHtmlTransforms(config.plugins)
   const processedHtml = new Map<string, string>()
   const isExcludedUrl = (url: string) =>
-    url.startsWith('#') ||
-    isExternalUrl(url) ||
-    isDataUrl(url) ||
-    checkPublicFile(url, config)
+    url.startsWith('#') || isExternalUrl(url) || isDataUrl(url)
 
   return {
     name: 'vite:build-html',
@@ -193,15 +190,8 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
 
             const url = src && src.value && src.value.content
             if (url && checkPublicFile(url, config)) {
-              // referencing public dir url, prefix with base
-              s.overwrite(
-                src!.value!.loc.start.offset,
-                src!.value!.loc.end.offset,
-                `"${config.base + url.slice(1)}"`
-              )
-            }
-
-            if (isModule) {
+              assetUrls.push(src!)
+            } else if (isModule) {
               inlineModuleIndex++
               if (url && !isExcludedUrl(url)) {
                 // <script type="module" src="..."/>
@@ -231,7 +221,9 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
                 assetAttrs.includes(p.name)
               ) {
                 const url = p.value.content
-                if (!isExcludedUrl(url)) {
+                if (checkPublicFile(url, config)) {
+                  assetUrls.push(p)
+                } else if (!isExcludedUrl(url)) {
                   if (node.tag === 'link' && isCSSRequest(url)) {
                     // CSS references, convert to import
                     js += `\nimport ${JSON.stringify(url)}`
@@ -239,12 +231,6 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
                   } else {
                     assetUrls.push(p)
                   }
-                } else if (checkPublicFile(url, config)) {
-                  s.overwrite(
-                    p.value.loc.start.offset,
-                    p.value.loc.end.offset,
-                    `"${config.base + url.slice(1)}"`
-                  )
                 }
               }
             }
