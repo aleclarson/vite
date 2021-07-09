@@ -7403,10 +7403,10 @@ vary@^1, vary@~1.1.2:
   resolved "https://registry.yarnpkg.com/vary/-/vary-1.1.2.tgz#2299f02c6ded30d4a5961b0b9f74524a18f634fc"
   integrity sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=
 
-vite-dts@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.npmjs.org/vite-dts/-/vite-dts-1.0.2.tgz#ed54364b7d9b0d4b08b9eeccf10deab255513bb8"
-  integrity sha512-8vicrfIrKsj71a+QdskG5TIDYcnoUECmFT7zJxh7HhlSMU/A8xEwZHnX29jHvSSHj+7pv1FHW4WvWFFRf42wng==
+vite-dts@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/vite-dts/-/vite-dts-1.0.3.tgz#b245e6dfa07829b0e833b3ae9984290464883616"
+  integrity sha512-BaiCEgj6M7zt1nM/9ncuGe32GCtueIpVxdeeTTDvbrPtcXa1vIS8xOr85p7i6RC0J0TGibtHJxhWvi5J8PN/Gg==
   dependencies:
     load-json-file "^6.2.0"
 
