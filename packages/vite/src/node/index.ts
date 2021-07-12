@@ -5,6 +5,14 @@ export { optimizeDeps } from './optimizer'
 export { send } from './server/send'
 export { createLogger } from './logger'
 export { resolvePackageData, resolvePackageEntry } from './plugins/resolve'
+<<<<<<< HEAD
+=======
+export {
+  applyHtmlTransforms,
+  resolveHtmlTransforms,
+  transformLocalUrls
+} from './plugins/html'
+>>>>>>> cc9493f4... feat: export `transformLocalUrls` from HTML plugin
 export { normalizePath } from './utils'
 
 // additional types
