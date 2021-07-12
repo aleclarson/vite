@@ -207,29 +207,31 @@ export async function transformLocalUrls(
 
   // for each encountered asset url, rewrite original html so that it
   // references the post-build location.
-  for (const attr of localUrls) {
-    const value = attr.value!
-    try {
-      const processedUrl =
-        attr.name === 'srcset'
-          ? await processSrcSet(value.content, ({ url }) =>
-              urlToBuiltUrl(url, filePath, config, ctx)
-            )
-          : await urlToBuiltUrl(value.content, filePath, config, ctx)
+  await Promise.all(
+    localUrls.map(async (attr) => {
+      const value = attr.value!
+      try {
+        const processedUrl =
+          attr.name === 'srcset'
+            ? await processSrcSet(value.content, ({ url }) =>
+                urlToBuiltUrl(url, filePath, config, ctx)
+              )
+            : await urlToBuiltUrl(value.content, filePath, config, ctx)
 
-      s.overwrite(
-        value.loc.start.offset,
-        value.loc.end.offset,
-        `"${processedUrl}"`
-      )
-    } catch (e) {
-      // #1885 preload may be pointing to urls that do not exist
-      // locally on disk
-      if (e.code !== 'ENOENT') {
-        throw e
+        s.overwrite(
+          value.loc.start.offset,
+          value.loc.end.offset,
+          `"${processedUrl}"`
+        )
+      } catch (e) {
+        // #1885 preload may be pointing to urls that do not exist
+        // locally on disk
+        if (e.code !== 'ENOENT') {
+          throw e
+        }
       }
-    }
-  }
+    })
+  )
 
   return s.toString()
 }
