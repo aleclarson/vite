@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { Plugin } from '../plugin'
 import { ViteDevServer } from '../server'
-import { OutputAsset, OutputBundle, OutputChunk } from 'rollup'
+import { OutputAsset, OutputBundle, OutputChunk, PluginContext } from 'rollup'
 import {
   slash,
   cleanUrl,
@@ -134,14 +134,112 @@ function formatParseError(e: any, id: string, html: string): Error {
   return e
 }
 
+export async function transformLocalUrls(
+  html: string,
+  filePath: string,
+  config: ResolvedConfig,
+  ctx: PluginContext,
+  options: {
+    onModule?: (url: string | undefined, node: any) => boolean | void
+    onStyleSheet?: (url: string) => boolean | void
+  } = {}
+) {
+  const s = new MagicString(html)
+  const localUrls: AttributeNode[] = []
+  const isExcludedUrl = (url: string) =>
+    url.startsWith('#') || isExternalUrl(url) || isDataUrl(url)
+
+  await traverseHtml(html, filePath, (node) => {
+    if (node.type !== NodeTypes.ELEMENT) {
+      return
+    }
+
+    let shouldRemove = false
+
+    // For asset references in index.html, also generate an import
+    // statement for each - this will be handled by the asset plugin
+    const assetAttrs = assetAttrsConfig[node.tag]
+    if (assetAttrs) {
+      for (const p of node.props) {
+        if (
+          p.type === NodeTypes.ATTRIBUTE &&
+          p.value &&
+          assetAttrs.includes(p.name)
+        ) {
+          const url = p.value.content
+          if (isExcludedUrl(url)) {
+            return
+          }
+          if (checkPublicFile(url, config)) {
+            localUrls.push(p)
+          } else if (
+            node.tag === 'link' &&
+            isCSSRequest(url) &&
+            options.onStyleSheet?.(url)
+          ) {
+            shouldRemove = true
+          } else {
+            localUrls.push(p)
+          }
+        }
+      }
+    }
+    // script tags
+    else if (node.tag === 'script') {
+      const { src, isModule } = getScriptInfo(node)
+      const url = src?.value?.content
+      if (url && isExcludedUrl(url)) {
+        return
+      }
+      if (url && checkPublicFile(url, config)) {
+        localUrls.push(src!)
+      } else if (isModule && options.onModule?.(url, node)) {
+        shouldRemove = true
+      } else if (src) {
+        localUrls.push(src)
+      }
+    }
+
+    if (shouldRemove) {
+      s.remove(node.loc.start.offset, node.loc.end.offset)
+    }
+  })
+
+  // for each encountered asset url, rewrite original html so that it
+  // references the post-build location.
+  for (const attr of localUrls) {
+    const value = attr.value!
+    try {
+      const processedUrl =
+        attr.name === 'srcset'
+          ? await processSrcSet(value.content, ({ url }) =>
+              urlToBuiltUrl(url, filePath, config, ctx)
+            )
+          : await urlToBuiltUrl(value.content, filePath, config, ctx)
+
+      s.overwrite(
+        value.loc.start.offset,
+        value.loc.end.offset,
+        `"${processedUrl}"`
+      )
+    } catch (e) {
+      // #1885 preload may be pointing to urls that do not exist
+      // locally on disk
+      if (e.code !== 'ENOENT') {
+        throw e
+      }
+    }
+  }
+
+  return s.toString()
+}
+
 /**
  * Compiles index.html into an entry js module
  */
 export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
   const [preHooks, postHooks] = resolveHtmlTransforms(config.plugins)
   const processedHtml = new Map<string, string>()
-  const isExcludedUrl = (url: string) =>
-    url.startsWith('#') || isExternalUrl(url) || isDataUrl(url)
 
   return {
     name: 'vite:build-html',
@@ -156,99 +254,30 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
         })
 
         let js = ''
-        const s = new MagicString(html)
-        const assetUrls: AttributeNode[] = []
         let inlineModuleIndex = -1
 
-        await traverseHtml(html, id, (node) => {
-          if (node.type !== NodeTypes.ELEMENT) {
-            return
-          }
-
-          let shouldRemove = false
-
-          // script tags
-          if (node.tag === 'script') {
-            const { src, isModule } = getScriptInfo(node)
-
-            const url = src && src.value && src.value.content
-            if (url && checkPublicFile(url, config)) {
-              assetUrls.push(src!)
-            } else if (isModule) {
-              inlineModuleIndex++
-              if (url && !isExcludedUrl(url)) {
-                // <script type="module" src="..."/>
-                // add it as an import
-                js += `\nimport ${JSON.stringify(url)}`
-                shouldRemove = true
-              } else if (node.children.length) {
-                // <script type="module">...</script>
-                js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
-                shouldRemove = true
-              }
+        html = await transformLocalUrls(html, id, config, this, {
+          onModule(url, node) {
+            inlineModuleIndex++
+            if (url) {
+              // <script type="module" src="..."/>
+              // add it as an import
+              js += `\nimport ${JSON.stringify(url)}`
+              return true
             }
-          }
-
-          // For asset references in index.html, also generate an import
-          // statement for each - this will be handled by the asset plugin
-          const assetAttrs = assetAttrsConfig[node.tag]
-          if (assetAttrs) {
-            for (const p of node.props) {
-              if (
-                p.type === NodeTypes.ATTRIBUTE &&
-                p.value &&
-                assetAttrs.includes(p.name)
-              ) {
-                const url = p.value.content
-                if (checkPublicFile(url, config)) {
-                  assetUrls.push(p)
-                } else if (!isExcludedUrl(url)) {
-                  if (node.tag === 'link' && isCSSRequest(url)) {
-                    // CSS references, convert to import
-                    js += `\nimport ${JSON.stringify(url)}`
-                    shouldRemove = true
-                  } else {
-                    assetUrls.push(p)
-                  }
-                }
-              }
+            if (node.children.length) {
+              // <script type="module">...</script>
+              js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
+              return true
             }
-          }
-
-          if (shouldRemove) {
-            // remove the script tag from the html. we are going to inject new
-            // ones in the end.
-            s.remove(node.loc.start.offset, node.loc.end.offset)
+          },
+          onStyleSheet(url) {
+            // CSS references, convert to import
+            js += `\nimport ${JSON.stringify(url)}`
+            return true
           }
         })
-
-        // for each encountered asset url, rewrite original html so that it
-        // references the post-build location.
-        for (const attr of assetUrls) {
-          const value = attr.value!
-          try {
-            const url =
-              attr.name === 'srcset'
-                ? await processSrcSet(value.content, ({ url }) =>
-                    urlToBuiltUrl(url, id, config, this)
-                  )
-                : await urlToBuiltUrl(value.content, id, config, this)
-
-            s.overwrite(
-              value.loc.start.offset,
-              value.loc.end.offset,
-              `"${url}"`
-            )
-          } catch (e) {
-            // #1885 preload may be pointing to urls that do not exist
-            // locally on disk
-            if (e.code !== 'ENOENT') {
-              throw e
-            }
-          }
-        }
-
-        processedHtml.set(id, s.toString())
+        processedHtml.set(id, html)
 
         // inject dynamic import polyfill
         if (config.build.polyfillDynamicImport) {
