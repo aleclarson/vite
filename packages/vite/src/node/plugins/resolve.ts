@@ -197,45 +197,36 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
 
       // bare package imports, perform node resolve
       if (bareImportRE.test(id)) {
-        if (
-          asSrc &&
-          server &&
-          !ssr &&
-          (res = tryOptimizedResolve(id, server))
-        ) {
-          return res
+        res =
+          (asSrc && server && !ssr && tryOptimizedResolve(id, server)) ||
+          (targetWeb &&
+            tryResolveBrowserMapping(id, importer, options, false)) ||
+          tryNodeResolve(id, importer, options, targetWeb, server)
+
+        if (res) {
+          if (!ssr) {
+            return res
+          }
+          const resId = typeof res === 'string' ? res : res.id
+          if (path.isAbsolute(resId) && resId.startsWith(root + '/')) {
+            return res
+          }
         }
 
-        if (
-          targetWeb &&
-          (res = tryResolveBrowserMapping(id, importer, options, false))
-        ) {
-          return res
-        }
-
-        if ((res = tryNodeResolve(id, importer, options, targetWeb, server))) {
-          return res
+        if (ssr) {
+          return { id, external: true }
         }
 
         // node built-ins.
         // externalize if building for SSR, otherwise redirect to empty module
         if (isBuiltin(id)) {
-          if (ssr) {
-            return {
-              id,
-              external: true
-            }
-          } else {
-            if (!asSrc) {
-              debug(
-                `externalized node built-in "${id}" to empty module. ` +
-                  `(imported by: ${chalk.white.dim(importer)})`
-              )
-            }
-            return isProduction
-              ? browserExternalId
-              : `${browserExternalId}:${id}`
+          if (!asSrc) {
+            debug(
+              `externalized node built-in "${id}" to empty module. ` +
+                `(imported by: ${chalk.white.dim(importer)})`
+            )
           }
+          return isProduction ? browserExternalId : `${browserExternalId}:${id}`
         }
       }
 
