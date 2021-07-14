@@ -1,4 +1,3 @@
-import path from 'path'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
 import { ViteDevServer } from '..'
