@@ -174,8 +174,14 @@ async function instantiateModule(
   try {
     let ssrModuleInit: Function
     if (isProduction) {
-      // Use the faster `new Function` in production.
-      ssrModuleInit = new Function(...Object.keys(ssrArguments), ssrModuleImpl)
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const AsyncFunction = async function () {}.constructor as typeof Function
+
+      // Use the faster `new AsyncFunction` in production.
+      ssrModuleInit = new AsyncFunction(
+        ...Object.keys(ssrArguments),
+        ssrModuleImpl
+      )
     } else {
       // Use the slower `vm.runInThisContext` for better sourcemap support.
       const vm = require('vm') as typeof import('vm')
@@ -219,9 +225,12 @@ function nodeRequire(
     }
   )
 
-  const loadModule = Module.createRequire(importer || resolveOptions.root + '/')
+  let mod: any
   try {
-    var mod = loadModule(id)
+    const loadModule = Module.createRequire(
+      importer || resolveOptions.root + '/'
+    )
+    mod = loadModule(id)
   } finally {
     unhookNodeResolve()
   }
