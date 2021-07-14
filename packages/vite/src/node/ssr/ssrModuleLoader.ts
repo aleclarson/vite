@@ -165,8 +165,10 @@ async function instantiateModule(
   try {
     let ssrModuleInit: Function
     if (isProduction) {
-      // Use the faster `new Function` in production.
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       const AsyncFunction = async function () {}.constructor as typeof Function
+
+      // Use the faster `new Function` in production.
       ssrModuleInit = new AsyncFunction(
         ...Object.keys(ssrArguments),
         ssrModuleImpl
@@ -224,9 +226,12 @@ function nodeRequire(
     }
   )
 
-  const loadModule = Module.createRequire(importer || resolveOptions.root + '/')
+  let mod: any
   try {
-    var mod = loadModule(id)
+    const loadModule = Module.createRequire(
+      importer || resolveOptions.root + '/'
+    )
+    mod = loadModule(id)
   } finally {
     unhookNodeResolve()
   }
