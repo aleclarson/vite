@@ -495,9 +495,6 @@ async function doBuild(
         }
       })
 
-      // stop watching
-      watcher.close()
-
       return watcher
     }
 
