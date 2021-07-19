@@ -1,4 +1,5 @@
-import babel, { ParserOptions, TransformOptions, types as t } from '@babel/core'
+import type { ParserOptions, TransformOptions, types as t } from '@babel/core'
+import * as babel from '@babel/core'
 import { createFilter } from '@rollup/pluginutils'
 import resolve from 'resolve'
 import type { Plugin, PluginOption } from 'vite'
@@ -26,6 +27,14 @@ export interface Options {
    */
   jsxRuntime?: 'classic' | 'automatic'
   /**
+   * Replaces the import source when importing functions when used with automatic jsx runtime.
+   *
+   * See https://babeljs.io/docs/en/babel-plugin-transform-react-jsx#importsource
+   * @default "react"
+   */
+  jsxImportSource?: string
+
+  /**
    * Babel configuration applied in both dev and prod.
    */
   babel?: TransformOptions
@@ -41,14 +50,20 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
   let isProduction = true
   let skipFastRefresh = opts.fastRefresh === false
   let filter = createFilter(opts.include, opts.exclude)
+  let jsxInject: string | undefined
 
   const userPlugins = opts.babel?.plugins || []
   const userParserPlugins =
     opts.parserPlugins || opts.babel?.parserOpts?.plugins || []
 
+  const importReactRegex = /(^|\n)import\s+(\*\s+as\s+)?React\s+/
+
   const viteBabel: Plugin = {
-    name: 'vite:babel',
+    name: 'vite:react-babel',
     enforce: 'pre',
+    configResolved(config) {
+      jsxInject = config.esbuild ? config.esbuild.jsxInject : undefined
+    },
     async transform(code, id, ssr) {
       if (/\.[tj]sx?$/.test(id)) {
         const plugins = [...userPlugins]
@@ -93,7 +108,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           if (isReactModule && filter(id)) {
             useFastRefresh = true
             plugins.push([
-              await import('react-refresh/babel'),
+              await interopDefault(import('react-refresh/babel')),
               { skipEnvCheck: true }
             ])
           }
@@ -113,7 +128,10 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
 
             plugins.push([
               await import('@babel/plugin-transform-react-jsx'),
-              { runtime: 'automatic' }
+              {
+                runtime: 'automatic',
+                importSource: opts.jsxImportSource
+              }
             ])
 
             // Avoid inserting `import` statements into CJS modules.
@@ -123,7 +141,13 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           }
           // Even if the automatic JSX runtime is not used, we can still
           // inject the React import for .jsx and .tsx modules.
-          else if (!isNodeModules && !/(^|\n)import React /.test(code)) {
+          else if (
+            !isNodeModules &&
+            !(
+              importReactRegex.test(code) ||
+              importReactRegex.test(jsxInject ?? '')
+            )
+          ) {
             code = `import React from 'react'; ` + code
           }
         }
@@ -177,6 +201,11 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
     config: () => ({
       resolve: {
         dedupe: ['react', 'react-dom']
+      },
+      // react/jsx-runtime is in CJS format
+      // we want to explicitly cast it to ESM
+      optimizeDeps: {
+        include: ['react/jsx-runtime']
       }
     }),
     configResolved(config) {
@@ -191,7 +220,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
       config.plugins.forEach(
         (plugin) =>
           (plugin.name === 'react-refresh' ||
-            plugin.name === 'vite:react-jsx') &&
+            (plugin !== viteReactJsx && plugin.name === 'vite:react-jsx')) &&
           config.logger.warn(
             `[@vitejs/plugin-react] This plugin conflicts with "${plugin.name}". Please remove it.`
           )
@@ -256,3 +285,7 @@ viteReact.preambleCode = preambleCode
 function interopDefault(promise: Promise<any>): Promise<any> {
   return promise.then((module) => module.default || module)
 }
+
+// overwrite for cjs require('...')() usage
+module.exports = viteReact
+viteReact['default'] = viteReact

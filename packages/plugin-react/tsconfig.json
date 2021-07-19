@@ -3,7 +3,7 @@
   "exclude": ["**/*.spec.ts"],
   "compilerOptions": {
     "outDir": "dist",
-    "target": "ES2019",
+    "target": "ES2018",
     "module": "CommonJS",
     "moduleResolution": "Node",
     "strict": true,
