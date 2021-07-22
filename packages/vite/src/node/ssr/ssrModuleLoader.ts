@@ -92,6 +92,8 @@ async function instantiateModule(
   const resolveOptions: InternalResolveOptions = {
     conditions: ['node'],
     dedupe,
+    // Prefer CommonJS modules.
+    extensions: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
     isBuild: true,
     isProduction,
     // Disable "module" condition.
