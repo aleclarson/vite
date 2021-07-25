@@ -90,7 +90,7 @@ function markExplicitImport(url: string) {
  */
 export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
   const { root, base } = config
-  const clientPublicPath = path.posix.join(base, CLIENT_PUBLIC_PATH)
+  const clientPublicPath = base + CLIENT_PUBLIC_PATH.slice(1)
 
   let server: ViteDevServer
 
