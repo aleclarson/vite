@@ -294,7 +294,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
           }
           return [
             `import { updateStyle, removeStyle } from ${JSON.stringify(
-              path.posix.join(config.base, CLIENT_PUBLIC_PATH)
+              config.base + CLIENT_PUBLIC_PATH.slice(1)
             )}`,
             `const id = ${JSON.stringify(id)}`,
             `const css = ${JSON.stringify(css)}`,

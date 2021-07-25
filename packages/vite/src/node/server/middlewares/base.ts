@@ -7,7 +7,10 @@ import { Connect } from 'types/connect'
 export function baseMiddleware({
   config
 }: ViteDevServer): Connect.NextHandleFunction {
-  const base = config.base
+  let base = config.base
+  if (/^https?:\/\//.test(base)) {
+    base = parseUrl(base).pathname!
+  }
 
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
