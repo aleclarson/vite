@@ -13,7 +13,7 @@ import {
 import { ResolvedConfig, ViteDevServer } from '../..'
 import { send } from '../send'
 import { CLIENT_PUBLIC_PATH, FS_PREFIX } from '../../constants'
-import { cleanUrl, fsPathFromId } from '../../utils'
+import { cleanUrl, fsPathFromId, normalizePath } from '../../utils'
 import { assetAttrsConfig } from '../../plugins/html'
 
 export function createDevHtmlTransformFn(
@@ -35,7 +35,7 @@ function getHtmlFilename(url: string, server: ViteDevServer) {
   if (url.startsWith(FS_PREFIX)) {
     return fsPathFromId(url)
   } else {
-    return path.join(server.config.root, url.slice(1))
+    return normalizePath(path.join(server.config.root, url.slice(1)))
   }
 }
 
@@ -155,14 +155,18 @@ export function indexHtmlMiddleware(
     // spa-fallback always redirects to /index.html
     if (url?.endsWith('.html') && req.headers['sec-fetch-dest'] !== 'script') {
       const filename = getHtmlFilename(url, server)
-      if (fs.existsSync(filename)) {
-        try {
-          let html = fs.readFileSync(filename, 'utf-8')
-          html = await server.transformIndexHtml(url, html, req.originalUrl)
-          return send(req, res, html, 'html')
-        } catch (e) {
-          return next(e)
-        }
+      try {
+        const loadResult = await server.pluginContainer.load(filename)
+        const html = await server.transformIndexHtml(
+          url,
+          (loadResult &&
+            (typeof loadResult === 'string' ? loadResult : loadResult.code)) ||
+            fs.readFileSync(filename, 'utf-8'),
+          req.originalUrl
+        )
+        return send(req, res, html, 'html')
+      } catch (e) {
+        return next(e)
       }
     }
     next()
