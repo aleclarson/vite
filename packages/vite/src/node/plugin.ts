@@ -1,3 +1,4 @@
+import { UserConfig } from './config'
 import {
   CustomPluginOptions,
   LoadResult,
@@ -10,7 +11,7 @@ import {
 import { ServerHook } from './server'
 import { IndexHtmlTransform } from './plugins/html'
 import { ModuleNode } from './server/moduleGraph'
-import { ConfigEnv, InternalConfig, ResolvedConfig } from './'
+import { ConfigEnv, ResolvedConfig } from './'
 import { HmrContext } from './server/hmr'
 
 /**
@@ -61,9 +62,9 @@ export interface Plugin extends RollupPlugin {
    * plugins inside  the `config` hook will have no effect.
    */
   config?: (
-    config: InternalConfig,
+    config: UserConfig,
     env: ConfigEnv
-  ) => InternalConfig | null | void | Promise<InternalConfig | null | void>
+  ) => UserConfig | null | void | Promise<UserConfig | null | void>
   /**
    * Use this hook to read and store the final resolved vite config.
    */
