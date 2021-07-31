@@ -2,6 +2,7 @@ import path from 'path'
 import chalk from 'chalk'
 import { gzip } from 'zlib'
 import { promisify } from 'util'
+import { startTask, MistyTask } from 'misty/task'
 import { Plugin } from 'rollup'
 import { ResolvedConfig } from '../config'
 import { normalizePath } from '../utils'
@@ -71,18 +72,11 @@ export function buildReporterPlugin(config: ResolvedConfig): Plugin {
 
   const tty = process.stdout.isTTY && !process.env.CI
   const shouldLogInfo = LogLevels[config.logLevel || 'info'] >= LogLevels.info
-  let hasTransformed = false
-  let hasRenderedChunk = false
   let transformedCount = 0
   let chunkCount = 0
 
-  const logTransform = throttle((id: string) => {
-    writeLine(
-      `transforming (${transformedCount}) ${chalk.dim(
-        path.relative(config.root, id)
-      )}`
-    )
-  })
+  let transformTask: MistyTask | undefined
+  let renderChunksTask: MistyTask | undefined
 
   return {
     name: 'vite:reporter',
@@ -90,28 +84,21 @@ export function buildReporterPlugin(config: ResolvedConfig): Plugin {
     transform(_, id) {
       transformedCount++
       if (shouldLogInfo) {
-        if (!tty) {
-          if (!hasTransformed) {
-            config.logger.info(`transforming...`)
-          }
-        } else {
-          if (id.includes(`?`)) return
-          logTransform(id)
+        transformTask ??= startTask(`transforming...`)
+        if (tty && !id.includes('?')) {
+          transformTask.update(
+            `transforming (${transformedCount}) ${chalk.dim(
+              path.relative(config.root, id)
+            )}`
+          )
         }
-        hasTransformed = true
       }
       return null
     },
 
     buildEnd() {
       if (shouldLogInfo) {
-        if (tty) {
-          process.stdout.clearLine(0)
-          process.stdout.cursorTo(0)
-        }
-        config.logger.info(
-          `${chalk.green(`✓`)} ${transformedCount} modules transformed.`
-        )
+        transformTask?.finish(`${transformedCount} modules transformed.`)
       }
     },
 
@@ -122,22 +109,15 @@ export function buildReporterPlugin(config: ResolvedConfig): Plugin {
     renderChunk() {
       chunkCount++
       if (shouldLogInfo) {
-        if (!tty) {
-          if (!hasRenderedChunk) {
-            config.logger.info('rendering chunks...')
-          }
-        } else {
-          writeLine(`rendering chunks (${chunkCount})...`)
-        }
-        hasRenderedChunk = true
+        renderChunksTask ??= startTask(`rendering chunks...`)
+        tty && renderChunksTask.update(`rendering chunks (${chunkCount})...`)
       }
       return null
     },
 
     generateBundle() {
-      if (shouldLogInfo && tty) {
-        process.stdout.clearLine(0)
-        process.stdout.cursorTo(0)
+      if (shouldLogInfo) {
+        renderChunksTask?.finish(`${chunkCount} chunks rendered.`)
       }
     },
 
@@ -219,26 +199,5 @@ export function buildReporterPlugin(config: ResolvedConfig): Plugin {
         )
       }
     }
-  }
-}
-
-function writeLine(output: string) {
-  process.stdout.clearLine(0)
-  process.stdout.cursorTo(0)
-  if (output.length < process.stdout.columns) {
-    process.stdout.write(output)
-  } else {
-    process.stdout.write(output.substring(0, process.stdout.columns - 1))
-  }
-}
-
-function throttle(fn: Function) {
-  let timerHandle: NodeJS.Timeout | null = null
-  return (...args: any[]) => {
-    if (timerHandle) return
-    fn(...args)
-    timerHandle = setTimeout(() => {
-      timerHandle = null
-    }, 100)
   }
 }
