@@ -48,7 +48,7 @@ export async function ssrLoadModule(
       pendingImports.delete(url)
 
       const { logger } = server.config
-      if (!logger.hasLogged(e)) {
+      if (!logger.hasErrorLogged(e)) {
         try {
           e.stack = ssrRewriteStacktrace(e, server.moduleGraph)
         } catch {}
