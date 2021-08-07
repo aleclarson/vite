@@ -13,8 +13,11 @@ export function ssrRewriteStacktrace(
   let location: SourceLocation | undefined
 
   const stackFrames = error
-    .stack!.split('\n')
-    .slice(error.message.split('\n').length)
+    .stack!.replace(
+      new RegExp('^.+?' + error.constructor.name + ': ' + error.message),
+      ''
+    )
+    .split('\n')
     .map((line, i) => {
       return line.replace(stackFrameRE, (input, varName, url, line, column) => {
         if (!url) return input
