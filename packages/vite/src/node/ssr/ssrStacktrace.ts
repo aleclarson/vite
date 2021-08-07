@@ -11,59 +11,72 @@ export function ssrRewriteStacktrace(
 ): string {
   let code!: string
   let location: SourceLocation | undefined
+  let stack = error.stack!
 
-  const stackFrames = error
-    .stack!.replace(
-      new RegExp('^.+?' + error.constructor.name + ': ' + error.message),
-      ''
-    )
-    .split('\n')
-    .map((line, i) => {
-      return line.replace(stackFrameRE, (input, varName, url, line, column) => {
-        if (!url) return input
+  const header = error.constructor.name + ': ' + error.message + '\n'
+  const isSyntaxError = error instanceof SyntaxError
+  const syntaxFrame = isSyntaxError && stack.slice(0, stack.indexOf('\n'))
 
-        const mod = moduleGraph.urlToModuleMap.get(url)
-        const rawSourceMap = mod?.ssrTransformResult?.map
+  // Strip the error message.
+  stack = stack.slice(stack.indexOf(header) + header.length)
 
-        if (rawSourceMap) {
-          const consumer = new SourceMapConsumer(
-            rawSourceMap as unknown as RawSourceMap
-          )
+  // If something else comes after the error message,
+  // then we probably already processed this stack trace.
+  if (!stackFrameRE.test(stack)) {
+    return error.stack!
+  }
 
-          const pos = consumer.originalPositionFor({
+  // Prepend the syntax frame.
+  if (isSyntaxError) {
+    stack = `    at ${syntaxFrame}\n${stack}`
+  }
+
+  const stackFrames = stack.split('\n').map((line, i) =>
+    line.replace(stackFrameRE, (input, varName, url, line, column) => {
+      if (!url) return input
+
+      const mod = moduleGraph.urlToModuleMap.get(url)
+      const rawSourceMap = mod?.ssrTransformResult?.map
+
+      if (rawSourceMap) {
+        const consumer = new SourceMapConsumer(
+          rawSourceMap as unknown as RawSourceMap
+        )
+
+        const pos = consumer.originalPositionFor({
+          line: Number(line),
+          column: Number(column),
+          bias: SourceMapConsumer.GREATEST_LOWER_BOUND
+        })
+
+        if (pos.source) {
+          url = pos.source
+          line = pos.line
+          column = pos.column
+        }
+      }
+
+      if (i == 0 && fs.existsSync(url)) {
+        code = fs.readFileSync(url, 'utf8')
+        location = {
+          start: {
             line: Number(line),
-            column: Number(column),
-            bias: SourceMapConsumer.GREATEST_LOWER_BOUND
-          })
-
-          if (pos.source) {
-            url = pos.source
-            line = pos.line
-            column = pos.column
+            column: Number(column)
           }
         }
+      }
 
-        if (i == 0 && fs.existsSync(url)) {
-          code = fs.readFileSync(url, 'utf8')
-          location = {
-            start: {
-              line: Number(line),
-              column: Number(column)
-            }
-          }
+      if (rawSourceMap) {
+        const source = `${url}:${line}:${column}`
+        if (!varName || varName === 'eval') {
+          return `    at ${source}`
+        } else {
+          return `    at ${varName} (${source})`
         }
-
-        if (rawSourceMap) {
-          const source = `${url}:${line}:${column}`
-          if (!varName || varName === 'eval') {
-            return `    at ${source}`
-          } else {
-            return `    at ${varName} (${source})`
-          }
-        }
-        return input
-      })
+      }
+      return input
     })
+  )
 
   const message = location
     ? codeFrameColumns(code, location, {
