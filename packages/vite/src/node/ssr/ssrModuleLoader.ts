@@ -185,14 +185,16 @@ async function instantiateModule(
     }
     await ssrModuleInit(...Object.values(ssrArguments))
   } catch (e) {
-    try {
-      e.stack = ssrRewriteStacktrace(e, moduleGraph)
-    } catch {}
-    logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
-      timestamp: true,
-      clear: server.config.clearScreen,
-      error: e
-    })
+    if (!logger.hasLogged(e)) {
+      try {
+        e.stack = ssrRewriteStacktrace(e, moduleGraph)
+      } catch {}
+      logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
+        timestamp: true,
+        clear: server.config.clearScreen,
+        error: e
+      })
+    }
     throw e
   }
 
