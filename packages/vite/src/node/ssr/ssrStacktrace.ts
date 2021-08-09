@@ -1,23 +1,32 @@
 import { codeFrameColumns, SourceLocation } from '@babel/code-frame'
 import { SourceMapConsumer, RawSourceMap } from 'source-map'
 import { ModuleGraph } from '../server/moduleGraph'
+import os from 'os'
 import fs from 'fs'
 
 const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
 export function ssrRewriteStacktrace(
-  error: Error,
+  error: Error & { errors?: any[] },
   moduleGraph: ModuleGraph
 ): string {
   let code!: string
   let location: SourceLocation | undefined
   let stack = error.stack!
 
-  const header = error.constructor.name + ': ' + error.message + '\n'
-  const isSyntaxError = error instanceof SyntaxError
-  const syntaxFrame = isSyntaxError && stack.slice(0, stack.indexOf('\n'))
+  let syntaxFrame: string | undefined
+  const locationRE = new RegExp(
+    '(^|\\s)' +
+      os.homedir().replace(/\\/g, '\\\\') +
+      '([\\\\/][^:]+)*:\\d+(:\\d+)?'
+  )
+  const match = locationRE.exec(stack)
+  if (match) {
+    syntaxFrame = match[0].trim()
+  }
 
   // Strip the error message.
+  const header = error.constructor.name + ': ' + error.message + '\n'
   stack = stack.slice(stack.indexOf(header) + header.length)
 
   // If something else comes after the error message,
@@ -27,7 +36,7 @@ export function ssrRewriteStacktrace(
   }
 
   // Prepend the syntax frame.
-  if (isSyntaxError) {
+  if (syntaxFrame) {
     stack = `    at ${syntaxFrame}\n${stack}`
   }
 
@@ -81,7 +90,8 @@ export function ssrRewriteStacktrace(
   const message = location
     ? codeFrameColumns(code, location, {
         highlightCode: true,
-        message: error.message
+        // ESBuild errors have the raw message in the `errors` array.
+        message: error.errors ? error.errors[0].text : error.message
       })
     : error.message
 
