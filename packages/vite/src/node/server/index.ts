@@ -28,7 +28,8 @@ import { decodeURIMiddleware } from './middlewares/decodeURI'
 import {
   serveRawFsMiddleware,
   servePublicMiddleware,
-  serveStaticMiddleware
+  serveStaticMiddleware,
+  resolveStaticOptions
 } from './middlewares/static'
 import { timeMiddleware } from './middlewares/time'
 import { ModuleGraph, ModuleNode } from './moduleGraph'
@@ -126,10 +127,15 @@ export interface ServerOptions {
    * Options for files served via '/\@fs/'.
    */
   fsServe?: FileSystemServeOptions
+  /**
+   * Options passed to `sirv` for static assets.
+   */
+  static?: import('sirv').Options
 }
 
 export interface ResolvedServerOptions extends ServerOptions {
   fsServe: Required<FileSystemServeOptions>
+  static: import('sirv').Options
 }
 
 export interface FileSystemServeOptions {
@@ -477,7 +483,7 @@ export async function createServer(
   // this applies before the transform middleware so that these files are served
   // as-is without transforms.
   if (config.publicDir) {
-    middlewares.use(servePublicMiddleware(config.publicDir))
+    middlewares.use(servePublicMiddleware(config))
   }
 
   // main transform middleware
@@ -709,5 +715,6 @@ export function resolveServerOptions(
     root: fsServeRoot,
     strict: fsServeStrict
   }
+  server.static = resolveStaticOptions(server)
   return server as ResolvedServerOptions
 }
