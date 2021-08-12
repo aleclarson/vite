@@ -679,6 +679,11 @@ function mergeConfigRecursively(
         continue
       } else if (key === 'noExternal' && existing === true) {
         continue
+      } else if (key === 'setHeaders' && rootPath === 'server.static') {
+        if (typeof value === 'function') {
+          merged[key] = (...args: any[]) => (existing(...args), value(...args))
+        }
+        continue
       }
     }
 
