@@ -14,6 +14,9 @@ export function ssrRewriteStacktrace(
   let location: SourceLocation | undefined
   let stack = error.stack!
 
+  const header = error.constructor.name + ': ' + error.message + '\n'
+  const headerIndex = stack.indexOf(header)
+
   let syntaxFrame: string | undefined
   const locationRE = new RegExp(
     '(^|\\s)' +
@@ -21,13 +24,12 @@ export function ssrRewriteStacktrace(
       '([\\\\/][^:]+)*:\\d+(:\\d+)?'
   )
   const match = locationRE.exec(stack)
-  if (match) {
+  if (match && match.index < headerIndex) {
     syntaxFrame = match[0].trim()
   }
 
   // Strip the error message.
-  const header = error.constructor.name + ': ' + error.message + '\n'
-  stack = stack.slice(stack.indexOf(header) + header.length)
+  stack = stack.slice(headerIndex + header.length)
 
   // If something else comes after the error message,
   // then we probably already processed this stack trace.
