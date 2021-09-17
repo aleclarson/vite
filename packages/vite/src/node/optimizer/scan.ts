@@ -127,7 +127,8 @@ function globEntries(pattern: string | string[], config: ResolvedConfig) {
       `**/${config.build.outDir}/**`,
       `**/__tests__/**`
     ],
-    absolute: true
+    absolute: true,
+    followSymbolicLinks: false
   })
 }
 
