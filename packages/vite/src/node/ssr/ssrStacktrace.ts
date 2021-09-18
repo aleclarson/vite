@@ -18,14 +18,20 @@ export function ssrRewriteStacktrace(
   const headerIndex = stack.indexOf(header)
 
   let syntaxFrame: string | undefined
-  const locationRE = new RegExp(
-    '(^|\\s)' +
-      os.homedir().replace(/\\/g, '\\\\') +
-      '([\\\\/][^:]+)*:\\d+(:\\d+)?'
-  )
-  const match = locationRE.exec(stack)
-  if (match && match.index < headerIndex) {
-    syntaxFrame = match[0].trim()
+  if (error.errors?.[0].location) {
+    const { file, line, column } = error.errors[0].location
+    const mod = moduleGraph.getModuleById(file)
+    syntaxFrame = (mod ? mod.url : file) + ':' + line + ':' + (column + 1)
+  } else {
+    const locationRE = new RegExp(
+      '(^|\\s)' +
+        os.homedir().replace(/\\/g, '\\\\') +
+        '([\\\\/][^:]+)*:\\d+(:\\d+)?'
+    )
+    const match = locationRE.exec(stack)
+    if (match && match.index < headerIndex) {
+      syntaxFrame = match[0].trim()
+    }
   }
 
   // Strip the error message.
@@ -67,8 +73,8 @@ export function ssrRewriteStacktrace(
         }
       }
 
-      if (i == 0 && fs.existsSync(url)) {
-        code = fs.readFileSync(url, 'utf8')
+      if (i == 0 && mod?.file) {
+        code = fs.readFileSync(mod.file, 'utf8')
         location = {
           start: {
             line: Number(line),
