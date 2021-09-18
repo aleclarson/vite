@@ -44,8 +44,21 @@ export async function ssrLoadModule(
   const modulePromise = instantiateModule(url, server, context, urlStack)
   pendingModules.set(url, modulePromise)
   modulePromise
-    .catch(() => {
+    .catch((e) => {
       pendingImports.delete(url)
+
+      const { logger } = server.config
+      if (!logger.hasErrorLogged(e)) {
+        try {
+          rebindErrorStacktrace(e, ssrRewriteStacktrace(e, server.moduleGraph))
+        } catch {}
+
+        logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
+          timestamp: true,
+          clear: server.config.clearScreen,
+          error: e
+        })
+      }
     })
     .finally(() => {
       pendingModules.delete(url)
@@ -173,40 +186,28 @@ async function instantiateModule(
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
-  try {
-    let ssrModuleInit: Function
-    if (isProduction) {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      const AsyncFunction = async function () {}.constructor as typeof Function
+  let ssrModuleInit: Function
 
-      // Use the faster `new AsyncFunction` in production.
-      ssrModuleInit = new AsyncFunction(
-        ...Object.keys(ssrArguments),
-        ssrModuleImpl
-      )
-    } else {
-      // Use the slower `vm.runInThisContext` for better sourcemap support.
-      const vm = require('vm') as typeof import('vm')
-      ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-        filename: mod.file || mod.url,
-        columnOffset: 1,
-        displayErrors: false
-      })
-    }
-    await ssrModuleInit(...Object.values(ssrArguments))
-  } catch (e) {
-    if (!logger.hasErrorLogged(e)) {
-      try {
-        rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
-      } catch {}
-      logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
-        timestamp: true,
-        clear: server.config.clearScreen,
-        error: e
-      })
-    }
-    throw e
+  if (isProduction) {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    const AsyncFunction = async function () {}.constructor as typeof Function
+
+    // Use the faster `new AsyncFunction` in production.
+    ssrModuleInit = new AsyncFunction(
+      ...Object.keys(ssrArguments),
+      ssrModuleImpl
+    )
+  } else {
+    // Use the slower `vm.runInThisContext` for better sourcemap support.
+    const vm = require('vm') as typeof import('vm')
+    ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
+      filename: mod.file || mod.url,
+      columnOffset: 1,
+      displayErrors: false
+    })
   }
+
+  await ssrModuleInit(...Object.values(ssrArguments))
 
   return Object.freeze(ssrModule)
 }
