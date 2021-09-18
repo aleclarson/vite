@@ -44,8 +44,21 @@ export async function ssrLoadModule(
   const modulePromise = instantiateModule(url, server, context, urlStack)
   pendingModules.set(url, modulePromise)
   modulePromise
-    .catch(() => {
+    .catch((e) => {
       pendingImports.delete(url)
+
+      const { logger } = server.config
+      if (!logger.hasLogged(e)) {
+        try {
+          e.stack = ssrRewriteStacktrace(e, server.moduleGraph)
+        } catch {}
+
+        logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
+          timestamp: true,
+          clear: server.config.clearScreen,
+          error: e
+        })
+      }
     })
     .then(() => {
       pendingModules.delete(url)
@@ -165,40 +178,28 @@ async function instantiateModule(
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
-  try {
-    let ssrModuleInit: Function
-    if (isProduction) {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      const AsyncFunction = async function () {}.constructor as typeof Function
+  let ssrModuleInit: Function
 
-      // Use the faster `new Function` in production.
-      ssrModuleInit = new AsyncFunction(
-        ...Object.keys(ssrArguments),
-        ssrModuleImpl
-      )
-    } else {
-      // Use the slower `vm.runInThisContext` for better sourcemap support.
-      const vm = require('vm') as typeof import('vm')
-      ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-        filename: mod.file || mod.url,
-        columnOffset: 1,
-        displayErrors: false
-      })
-    }
-    await ssrModuleInit(...Object.values(ssrArguments))
-  } catch (e) {
-    if (!logger.hasLogged(e)) {
-      try {
-        e.stack = ssrRewriteStacktrace(e, moduleGraph)
-      } catch {}
-      logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
-        timestamp: true,
-        clear: server.config.clearScreen,
-        error: e
-      })
-    }
-    throw e
+  if (isProduction) {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    const AsyncFunction = async function () {}.constructor as typeof Function
+
+    // Use the faster `new Function` in production.
+    ssrModuleInit = new AsyncFunction(
+      ...Object.keys(ssrArguments),
+      ssrModuleImpl
+    )
+  } else {
+    // Use the slower `vm.runInThisContext` for better sourcemap support.
+    const vm = require('vm') as typeof import('vm')
+    ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
+      filename: mod.file || mod.url,
+      columnOffset: 1,
+      displayErrors: false
+    })
   }
+
+  await ssrModuleInit(...Object.values(ssrArguments))
 
   if (!ssrModule.__esModule) {
     Object.defineProperty(ssrModule, '__esModule', { value: true })
