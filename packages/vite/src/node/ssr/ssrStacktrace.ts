@@ -7,12 +7,16 @@ import fs from 'fs'
 const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
 export function ssrRewriteStacktrace(
-  error: Error & { errors?: any[] },
+  error: Error & { code?: unknown; errors?: any[] },
   moduleGraph: ModuleGraph
 ): string {
   let code!: string
   let location: SourceLocation | undefined
   let stack = error.stack!
+
+  if (error.code == 'MODULE_NOT_FOUND') {
+    return stack
+  }
 
   const header = error.constructor.name + ': ' + error.message + '\n'
   const headerIndex = stack.indexOf(header)
