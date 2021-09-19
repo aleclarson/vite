@@ -128,6 +128,7 @@
     "terser": "^5.5.1",
     "tslib": "^2.0.3",
     "types": "link:./types",
+    "vite": "link:.",
     "ws": "^7.4.1"
   }
 }
