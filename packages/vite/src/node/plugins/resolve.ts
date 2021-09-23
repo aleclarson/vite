@@ -74,14 +74,24 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
     ssrConfig,
     preferRelative = false
   } = baseOptions
+
   const requireOptions: InternalResolveOptions = {
     ...baseOptions,
     isRequire: true
   }
-  let server: ViteDevServer | undefined
 
   const { target: ssrTarget, noExternal: ssrNoExternal } = ssrConfig ?? {}
+  const ssrOptions: InternalResolveOptions = {
+    ...requireOptions,
+    conditions: ['node'],
+    // Skip the optimizer.
+    isBuild: true,
+    // Prefer CommonJS modules.
+    extensions: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
+    mainFields: ['main']
+  }
 
+  let server: ViteDevServer | undefined
   return {
     name: 'vite:resolve',
 
@@ -108,7 +118,11 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
         resolveOpts.custom['node-resolve'] &&
         resolveOpts.custom['node-resolve'].isRequire
 
-      const options = isRequire ? requireOptions : baseOptions
+      const options = ssr
+        ? ssrOptions
+        : isRequire
+        ? requireOptions
+        : baseOptions
 
       let res: string | PartialResolvedId | undefined
 
