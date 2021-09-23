@@ -346,7 +346,8 @@ export async function createServer(
     ignoreInitial: true,
     ignorePermissionErrors: true,
     disableGlobbing: true,
-    ...watchOptions
+    ...watchOptions,
+    followSymlinks: false
   }) as FSWatcher
 
   const plugins = config.plugins
