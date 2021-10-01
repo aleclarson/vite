@@ -98,7 +98,7 @@ export function createMissingImporterRegisterFn(
       currentMissing[id] = resolved
       if (handle) clearTimeout(handle)
       handle = setTimeout(() => rerun(ssr), debounceMs)
-      server._pendingReload = new Promise((r) => {
+      server._pendingReload ||= new Promise((r) => {
         pendingResolve = r
       })
     }
