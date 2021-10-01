@@ -24,6 +24,18 @@ type SSRModule = Record<string, any>
 const pendingModules = new Map<string, Promise<SSRModule>>()
 const pendingImports = new Map<string, string[]>()
 
+export async function ssrWaitForModules(): Promise<void> {
+  const ignoreError = () => {}
+  await Promise.all(
+    Array.from(pendingModules.values(), (modulePromise) =>
+      modulePromise.catch(ignoreError)
+    )
+  )
+  if (pendingModules.size) {
+    await ssrWaitForModules()
+  }
+}
+
 export async function ssrLoadModule(
   url: string,
   server: ViteDevServer,
