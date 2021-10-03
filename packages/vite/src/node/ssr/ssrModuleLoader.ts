@@ -2,10 +2,8 @@ import vm from 'vm'
 import path from 'path'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
-import { createFilter } from '@rollup/pluginutils'
 import { ViteDevServer } from '..'
 import { lookupFile, unwrapId } from '../utils'
-import { shouldExternalizeForSSR } from './ssrExternal'
 import { ssrRewriteStacktrace } from './ssrStacktrace'
 import {
   ssrExportAllKey,
@@ -22,6 +20,7 @@ import {
   tryNodeResolve
 } from '../plugins/resolve'
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
+import { createSSRExternalsFilter } from './ssrExternal'
 
 interface SSRContext {
   global: NodeJS.Global
@@ -111,16 +110,11 @@ async function instantiateModule(
   urlStack = urlStack.concat(url)
   const isCircular = (url: string) => urlStack.includes(url)
 
-  // Since dynamic imports can happen in parallel, we need to
-  // account for multiple pending deps and duplicate imports.
-  const pendingDeps: string[] = []
-
   const {
     isProduction,
     logger,
     resolve: { dedupe },
-    root,
-    ssr
+    root
   } = server.config
 
   const resolveOptions: InternalResolveOptions = {
@@ -143,25 +137,21 @@ async function instantiateModule(
     resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
   }
 
-  // We need to check `ssr.noExternal` explicitly, because it might include
-  // a deep import of a dependency that is otherwise externalized.
-  const canBeExternal =
-    ssr?.noExternal && ssr.noExternal !== true
-      ? createFilter(undefined, ssr.noExternal, { resolve: false })
-      : () => true
+  const isExternal = createSSRExternalsFilter(
+    server._ssrExternals!,
+    server.config.ssr?.noExternal
+  )
 
-  const isExternal = (dep: string) =>
-    dep[0] !== '/' &&
-    canBeExternal(dep) &&
-    (!server._optimizeDepsMetadata ||
-      shouldExternalizeForSSR(dep, server._ssrExternals!))
+  // Since dynamic imports can happen in parallel, we need to
+  // account for multiple pending deps and duplicate imports.
+  const pendingDeps: string[] = []
 
   const ssrImport = async (dep: string) => {
     if (server._pendingReload) {
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
     }
-    if (isExternal(dep)) {
+    if (dep[0] !== '/' && isExternal(dep)) {
       return nodeRequire(dep, filename, resolveOptions)
     }
     if (!isCircular(dep) && !pendingImports.get(dep)?.some(isCircular)) {
