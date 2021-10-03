@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 import { Plugin } from '../plugin'
 import { ViteDevServer } from '../server'
@@ -49,8 +48,8 @@ export function htmlInlineScriptProxyPlugin(): Plugin {
       const proxyMatch = id.match(htmlProxyRE)
       if (proxyMatch) {
         const index = Number(proxyMatch[1])
-        const file = cleanUrl(id)
-        const html = fs.readFileSync(file, 'utf-8').replace(htmlCommentRE, '')
+        const { meta } = this.getModuleInfo(cleanUrl(id))!
+        const html = meta.htmlProxy.replace(htmlCommentRE, '')
         let match
         scriptModuleRE.lastIndex = 0
         for (let i = 0; i <= index; i++) {
@@ -257,6 +256,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
 
         let js = ''
         let inlineModuleIndex = -1
+        let htmlProxy: string | undefined
 
         html = await transformLocalUrls(html, id, config, this, {
           onModule(url, node) {
@@ -270,6 +270,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
             if (node.children.length) {
               // <script type="module">...</script>
               js += `\nimport "${id}?html-proxy&index=${inlineModuleIndex}.js"`
+              htmlProxy = html
               return true
             }
           },
@@ -286,7 +287,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
           js = `import "${polyfillId}";\n${js}`
         }
 
-        return js
+        return { code: js, meta: { htmlProxy } }
       }
     },
 
