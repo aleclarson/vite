@@ -1,7 +1,9 @@
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
+import { createFilter } from '@rollup/pluginutils'
 import { ViteDevServer } from '..'
 import { unwrapId } from '../utils'
+import { shouldExternalizeForSSR } from './ssrExternal'
 import { rebindErrorStacktrace, ssrRewriteStacktrace } from './ssrStacktrace'
 import {
   ssrExportAllKey,
@@ -119,7 +121,8 @@ async function instantiateModule(
     isProduction,
     logger,
     resolve: { dedupe },
-    root
+    root,
+    ssr
   } = server.config
 
   const resolveOptions: InternalResolveOptions = {
@@ -135,8 +138,20 @@ async function instantiateModule(
     root
   }
 
+  // We need to check `ssr.noExternal` explicitly, because it might include
+  // a deep import of a dependency that is otherwise externalized.
+  const canBeExternal =
+    ssr?.noExternal && ssr.noExternal !== true
+      ? createFilter(undefined, ssr.noExternal, { resolve: false })
+      : () => true
+
+  const isExternal = (dep: string) =>
+    dep[0] !== '/' &&
+    canBeExternal(dep) &&
+    shouldExternalizeForSSR(dep, server._ssrExternals!)
+
   const ssrImport = async (dep: string) => {
-    if (dep[0] !== '/') {
+    if (isExternal(dep)) {
       return nodeRequire(dep, mod.file, resolveOptions)
     }
     if (!isCircular(dep) && !pendingImports.get(dep)?.some(isCircular)) {
