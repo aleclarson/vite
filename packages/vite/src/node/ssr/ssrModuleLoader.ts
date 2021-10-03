@@ -134,8 +134,12 @@ async function instantiateModule(
   // account for multiple pending deps and duplicate imports.
   const pendingDeps: string[] = []
 
+  const { external = [], noExternal = [] } = server.config.ssr || {}
+  const isExternal = (dep: string) =>
+    dep[0] !== '/' ? !noExternal.includes(dep) : external.includes(dep)
+
   const ssrImport = async (dep: string) => {
-    if (dep[0] !== '/') {
+    if (isExternal(dep)) {
       return nodeRequire(dep, mod.file, resolveOptions)
     }
     if (!isCircular(dep) && !pendingImports.get(dep)?.some(isCircular)) {
