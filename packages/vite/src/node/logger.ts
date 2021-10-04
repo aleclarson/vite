@@ -18,6 +18,7 @@ export interface Logger {
   clearScreen(type: LogType): void
   hasErrorLogged(error: Error | RollupError): boolean
   hasWarned: boolean
+  isLogged(logLevel: LogLevel): boolean
 }
 
 export interface LogOptions {
@@ -133,6 +134,9 @@ export function createLogger(
     },
     hasErrorLogged(error) {
       return loggedErrors.has(error)
+    },
+    isLogged(type) {
+      return thresh >= LogLevels[type]
     }
   }
 
