@@ -237,19 +237,6 @@ Repository: git+https://github.com/ampproject/remapping.git
 
 ---------------------------------------
 
-## @cspotcode/source-map-consumer
-License: BSD-3-Clause
-By: Andrew Bradley, Nick Fitzgerald, Tobias Koppers, Duncan Beevers, Stephen Crane, Ryan Seddon, Miles Elam, Mihai Bazon, Michael Ficarra, Todd Wolfson, Alexander Solovyov, Felix Gnass, Conrad Irwin, usrbincc, David Glasser, Chase Douglas, Evan Wallace, Heather Arthur, Hugh Kennedy, Simon Lydell, Jmeas Smith, Michael Z Goddard, azu, John Gozde, Adam Kirkton, Chris Montgomery, J. Ryan Stinnett, Jack Herrington, Chris Truter, Daniel Espeset, Jamie Wong, Eddy Bruël, Hawken Rives, Gilad Peleg, djchie, Gary Ye, Nicolas Lalevée
-Repository: http://github.com/cspotcode/source-map.git
-
----------------------------------------
-
-## @cspotcode/source-map-support
-License: MIT
-Repository: https://github.com/cspotcode/node-source-map-support
-
----------------------------------------
-
 ## @nodelib/fs.scandir
 License: MIT
 Repository: https://github.com/nodelib/nodelib/tree/master/packages/fs/fs.scandir
@@ -322,30 +309,6 @@ Repository: rollup/plugins
 License: MIT
 By: Rich Harris
 Repository: rollup/plugins
-
----------------------------------------
-
-## @tsconfig/node10
-License: MIT
-Repository: https://github.com/tsconfig/bases.git
-
----------------------------------------
-
-## @tsconfig/node12
-License: MIT
-Repository: https://github.com/tsconfig/bases.git
-
----------------------------------------
-
-## @tsconfig/node14
-License: MIT
-Repository: https://github.com/tsconfig/bases.git
-
----------------------------------------
-
-## @tsconfig/node16
-License: MIT
-Repository: https://github.com/tsconfig/bases.git
 
 ---------------------------------------
 
@@ -489,13 +452,6 @@ Repository: https://github.com/acornjs/acorn-static-class-features
 
 ---------------------------------------
 
-## acorn-walk
-License: MIT
-By: Marijn Haverbeke, Ingvar Stepanyan, Adrian Heine
-Repository: https://github.com/acornjs/acorn.git
-
----------------------------------------
-
 ## ansi-regex
 License: MIT
 By: Sindre Sorhus
@@ -514,13 +470,6 @@ Repository: chalk/ansi-styles
 License: ISC
 By: Elan Shanker
 Repository: https://github.com/micromatch/anymatch
-
----------------------------------------
-
-## arg
-License: MIT
-By: Josh Junon
-Repository: zeit/arg
 
 ---------------------------------------
 
@@ -616,6 +565,13 @@ Repository: egoist/cac
 > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 > THE SOFTWARE.
+
+---------------------------------------
+
+## callsites
+License: MIT
+By: Sindre Sorhus
+Repository: sindresorhus/callsites
 
 ---------------------------------------
 
@@ -853,13 +809,6 @@ Repository: expressjs/cors
 
 ---------------------------------------
 
-## create-require
-License: MIT
-By: Maël Nison, Paul Soporan, Pooya Parsa
-Repository: nuxt-contrib/create-require
-
----------------------------------------
-
 ## cross-spawn
 License: MIT
 By: André Cruz
@@ -904,12 +853,6 @@ Repository: git://github.com/visionmedia/debug.git
 License: MIT
 By: Sindre Sorhus
 Repository: sindresorhus/define-lazy-prop
-
----------------------------------------
-
-## diff
-License: BSD-3-Clause
-Repository: git://github.com/kpdecker/jsdiff.git
 
 ---------------------------------------
 
@@ -1320,6 +1263,13 @@ Repository: micromatch/is-glob
 
 ---------------------------------------
 
+## is-interactive
+License: MIT
+By: Sindre Sorhus
+Repository: sindresorhus/is-interactive
+
+---------------------------------------
+
 ## is-number
 License: MIT
 By: Jon Schlinkert, Olsten Larck, Rouven Weßling
@@ -1359,6 +1309,13 @@ Repository: git+https://github.com/isaacs/isexe.git
 License: MIT
 By: Aseem Kishore, Max Nanasy, Andrew Eisenberg, Jordan Tucker
 Repository: git+https://github.com/json5/json5.git
+
+---------------------------------------
+
+## kleur
+License: MIT
+By: Luke Edwards
+Repository: lukeed/kleur
 
 ---------------------------------------
 
@@ -1409,13 +1366,6 @@ Repository: https://github.com/rich-harris/magic-string
 > The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 > 
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
----------------------------------------
-
-## make-error
-License: ISC
-By: Julien Fontanet
-Repository: git://github.com/JsCommunity/make-error.git
 
 ---------------------------------------
 
@@ -1533,6 +1483,35 @@ Repository: git://github.com/isaacs/minimatch.git
 > WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 > ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 > IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---------------------------------------
+
+## misty
+License: MIT
+By: Alec Larson
+Repository: alloc/misty
+
+> MIT License
+> 
+> Copyright (c) Alec Larson
+> 
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+> 
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+> 
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
 
 ---------------------------------------
 
@@ -1947,6 +1926,13 @@ Repository: git://github.com/jfromaniello/selfsigned.git
 
 ---------------------------------------
 
+## shared-log
+License: MIT
+By: Alec Larson
+Repository: alloc/shared-log
+
+---------------------------------------
+
 ## shebang-command
 License: MIT
 By: Kevin Mårtensson
@@ -2090,35 +2076,6 @@ Repository: lukeed/totalist
 
 ---------------------------------------
 
-## ts-node
-License: MIT
-By: Blake Embrey, Andrew Bradley
-Repository: git://github.com/TypeStrong/ts-node.git
-
-> The MIT License (MIT)
-> 
-> Copyright (c) 2014 Blake Embrey (hello@blakeembrey.com)
-> 
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
-> 
-> The above copyright notice and this permission notice shall be included in
-> all copies or substantial portions of the Software.
-> 
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-> THE SOFTWARE.
-
----------------------------------------
-
 ## tsconfck
 License: MIT
 By: dominikg
@@ -2248,10 +2205,3 @@ Repository: websockets/ws
 License: ISC
 By: Eemeli Aro
 Repository: github:eemeli/yaml
-
----------------------------------------
-
-## yn
-License: MIT
-By: Sindre Sorhus
-Repository: sindresorhus/yn
