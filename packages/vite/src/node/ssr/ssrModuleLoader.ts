@@ -1,3 +1,4 @@
+import vm from 'vm'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
 import { createFilter } from '@rollup/pluginutils'
@@ -198,15 +199,8 @@ async function instantiateModule(
     [ssrExportAllKey]: ssrExportAll
   }
 
-  let ssrModuleImpl = result.code
-  if (isProduction) {
-    // Strip the newlines prepended by ssrTransform
-    ssrModuleImpl = ssrModuleImpl.slice(2) + `\n//# sourceURL=${mod.url}`
-  } else {
-    ssrModuleImpl = `(0,async function(${Object.keys(
-      ssrArguments
-    )}){\n${ssrModuleImpl}\n})`
-  }
+  let ssrModuleImpl =
+    `(0,async function(${Object.keys(ssrArguments)}){\n` + result.code + `\n})`
 
   const { map } = result
   if (map?.mappings) {
@@ -218,26 +212,11 @@ async function instantiateModule(
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
-  let ssrModuleInit: Function
-
-  if (isProduction) {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    const AsyncFunction = async function () {}.constructor as typeof Function
-
-    // Use the faster `new AsyncFunction` in production.
-    ssrModuleInit = new AsyncFunction(
-      ...Object.keys(ssrArguments),
-      ssrModuleImpl
-    )
-  } else {
-    // Use the slower `vm.runInThisContext` for better sourcemap support.
-    const vm = require('vm') as typeof import('vm')
-    ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-      filename: mod.file || mod.url,
-      columnOffset: 1,
-      displayErrors: false
-    })
-  }
+  const ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
+    filename: mod.file || mod.url,
+    columnOffset: 1,
+    displayErrors: false
+  })
 
   await ssrModuleInit(...Object.values(ssrArguments))
 
