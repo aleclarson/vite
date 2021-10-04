@@ -148,7 +148,8 @@ async function instantiateModule(
   const isExternal = (dep: string) =>
     dep[0] !== '/' &&
     canBeExternal(dep) &&
-    shouldExternalizeForSSR(dep, server._ssrExternals!)
+    (!server._optimizeDepsMetadata ||
+      shouldExternalizeForSSR(dep, server._ssrExternals!))
 
   const ssrImport = async (dep: string) => {
     if (server._pendingReload) {

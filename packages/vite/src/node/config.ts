@@ -95,7 +95,7 @@ export interface UserConfig {
    * system path or a path relative to <root>.
    * @default 'node_modules/.vite'
    */
-  cacheDir?: string
+  cacheDir?: string | false
   /**
    * Explicitly set a mode to run in. This will override the default mode for
    * each command, and can be overridden by the command line --mode option.
@@ -361,9 +361,11 @@ export async function resolveConfig(
     [`package.json`],
     true /* pathOnly */
   )
-  const cacheDir = config.cacheDir
-    ? path.resolve(resolvedRoot, config.cacheDir)
-    : pkgPath && path.join(path.dirname(pkgPath), `node_modules/.vite`)
+  const cacheDir =
+    config.cacheDir !== false &&
+    (config.cacheDir
+      ? path.resolve(resolvedRoot, config.cacheDir)
+      : pkgPath && path.join(path.dirname(pkgPath), `node_modules/.vite`))
 
   const assetsFilter = config.assetsInclude
     ? createFilter(config.assetsInclude)
