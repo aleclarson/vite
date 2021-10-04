@@ -1,3 +1,4 @@
+import vm from 'vm'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
 import { createFilter } from '@rollup/pluginutils'
@@ -218,26 +219,11 @@ async function instantiateModule(
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
-  let ssrModuleInit: Function
-
-  if (isProduction) {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    const AsyncFunction = async function () {}.constructor as typeof Function
-
-    // Use the faster `new AsyncFunction` in production.
-    ssrModuleInit = new AsyncFunction(
-      ...Object.keys(ssrArguments),
-      ssrModuleImpl
-    )
-  } else {
-    // Use the slower `vm.runInThisContext` for better sourcemap support.
-    const vm = require('vm') as typeof import('vm')
-    ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-      filename: mod.file || mod.url,
-      columnOffset: 1,
-      displayErrors: false
-    })
-  }
+  const ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
+    filename: mod.file || mod.url,
+    columnOffset: 1,
+    displayErrors: false
+  })
 
   await ssrModuleInit(...Object.values(ssrArguments))
 
