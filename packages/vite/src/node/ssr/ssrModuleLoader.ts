@@ -151,6 +151,10 @@ async function instantiateModule(
     shouldExternalizeForSSR(dep, server._ssrExternals!)
 
   const ssrImport = async (dep: string) => {
+    if (server._pendingReload) {
+      // Wait for "server._ssrExternals" to be updated
+      await server._pendingReload
+    }
     if (isExternal(dep)) {
       return nodeRequire(dep, mod.file, resolveOptions)
     }
