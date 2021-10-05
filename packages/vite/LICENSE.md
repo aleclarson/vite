@@ -255,13 +255,6 @@ Repository: https://github.com/nodelib/nodelib/tree/master/packages/fs/fs.walk
 
 ---------------------------------------
 
-## @polka/url
-License: MIT
-By: Luke Edwards
-Repository: lukeed/polka
-
----------------------------------------
-
 ## @rollup/plugin-alias
 License: MIT
 By: Johannes Stein
@@ -1961,13 +1954,6 @@ Repository: https://github.com/tapjs/signal-exit.git
 
 ---------------------------------------
 
-## sirv
-License: MIT
-By: Luke Edwards
-Repository: lukeed/sirv
-
----------------------------------------
-
 ## slash
 License: MIT
 By: Sindre Sorhus
@@ -2066,13 +2052,6 @@ Repository: chalk/supports-color
 License: MIT
 By: Jon Schlinkert, Rouven Weßling
 Repository: micromatch/to-regex-range
-
----------------------------------------
-
-## totalist
-License: MIT
-By: Luke Edwards
-Repository: lukeed/totalist
 
 ---------------------------------------
 
