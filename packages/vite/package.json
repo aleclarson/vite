@@ -1,6 +1,6 @@
 {
   "name": "@alloc/vite",
-  "version": "2.6.3-0",
+  "version": "2.6.3-2",
   "license": "MIT",
   "author": "Evan You",
   "description": "Native-ESM powered web dev build tool",
