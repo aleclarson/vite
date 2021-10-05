@@ -214,7 +214,6 @@ async function instantiateModule(
 
   const ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
     filename: mod.file || mod.url,
-    columnOffset: 1,
     displayErrors: false
   })
 
