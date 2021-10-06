@@ -172,7 +172,10 @@ async function instantiateModule(
         pendingDeps.splice(pendingDeps.indexOf(dep), 1)
       }
     }
-    return moduleGraph.urlToModuleMap.get(dep)?.ssrModule
+    // Use `getModuleByUrl` instead of accessing `urlToModuleMap` directly
+    // so that bare imports added to `ssr.noExternal` are normalized.
+    const depModule = await moduleGraph.getModuleByUrl(dep)
+    return depModule?.ssrModule
   }
 
   function ssrExportAll(sourceModule: any) {
