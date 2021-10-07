@@ -38,7 +38,7 @@ export async function injectSourcesContent(
   await Promise.all(
     map.sources.map(async (sourcePath, i) => {
       if (sourcePath) {
-        const mod = await moduleGraph?.getModuleByUrl(sourcePath)
+        const mod = moduleGraph?.urlToModuleMap.get(sourcePath)
         if (mod?.file) {
           sourcePath = mod.file
         } else if (sourceRoot) {
