@@ -1,9 +1,10 @@
 import vm from 'vm'
+import path from 'path'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
 import { createFilter } from '@rollup/pluginutils'
 import { ViteDevServer } from '..'
-import { unwrapId } from '../utils'
+import { lookupFile, unwrapId } from '../utils'
 import { shouldExternalizeForSSR } from './ssrExternal'
 import { rebindErrorStacktrace, ssrRewriteStacktrace } from './ssrStacktrace'
 import {
@@ -15,7 +16,11 @@ import {
 } from './ssrTransform'
 import { transformRequest } from '../server/transformRequest'
 import { injectSourcesContent } from '../server/sourcemap'
-import { InternalResolveOptions, tryNodeResolve } from '../plugins/resolve'
+import {
+  InternalResolveOptions,
+  loadPackageData,
+  tryNodeResolve
+} from '../plugins/resolve'
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
 
 interface SSRContext {
@@ -139,6 +144,13 @@ async function instantiateModule(
     root
   }
 
+  // Always resolve peerDependencies from the project root.
+  // Otherwise, linked packages may use their version from devDependencies.
+  const filename = mod.file
+  if (filename) {
+    resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
+  }
+
   // We need to check `ssr.noExternal` explicitly, because it might include
   // a deep import of a dependency that is otherwise externalized.
   const canBeExternal =
@@ -158,7 +170,7 @@ async function instantiateModule(
       await server._pendingReload
     }
     if (isExternal(dep)) {
-      return nodeRequire(dep, mod.file, resolveOptions)
+      return nodeRequire(dep, filename, resolveOptions)
     }
     if (!isCircular(dep) && !pendingImports.get(dep)?.some(isCircular)) {
       pendingDeps.push(dep)
@@ -207,16 +219,16 @@ async function instantiateModule(
 
   const { map } = result
   if (map?.mappings) {
-    if (mod.file) {
-      map.file = mod.file
-      await injectSourcesContent(map, mod.file, logger, moduleGraph)
+    if (filename) {
+      map.file = filename
+      await injectSourcesContent(map, filename, logger, moduleGraph)
     }
 
     ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
   const ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-    filename: mod.file || mod.url,
+    filename: filename || mod.url,
     displayErrors: false
   })
 
@@ -230,12 +242,18 @@ function nodeRequire(
   importer: string | null,
   resolveOptions: InternalResolveOptions
 ) {
+  const resolveOptionsMap = new Map<string, InternalResolveOptions>()
   const unhookNodeResolve = hookNodeResolve(
     (nodeResolve) => (id, parent, isMain, options) => {
       if (id[0] === '.' || Module.builtinModules.includes(id)) {
         return nodeResolve(id, parent, isMain, options)
       }
-      const resolved = tryNodeResolve(id, parent.id, resolveOptions, false)
+      const resolveOpts = computeResolveOptions(
+        parent.id,
+        resolveOptions,
+        resolveOptionsMap
+      )
+      const resolved = tryNodeResolve(id, parent.id, resolveOpts, false)
       if (!resolved) {
         throw Error(`Cannot find module '${id}' imported from '${parent.id}'`)
       }
@@ -261,4 +279,48 @@ function nodeRequire(
       return mod[prop]
     }
   })
+}
+
+function computeResolveOptions(
+  importer: string,
+  resolveOptions: InternalResolveOptions,
+  cache: Map<string, InternalResolveOptions>
+) {
+  let options = cache.get(importer)
+  if (!options) {
+    const dedupe = dedupePeerDeps(importer, resolveOptions)
+    cache.set(
+      importer,
+      (options =
+        dedupe !== resolveOptions.dedupe
+          ? { ...resolveOptions, dedupe }
+          : resolveOptions)
+    )
+  }
+  return options
+}
+
+/**
+ * Merge peer dependencies into `resolve.dedupe` array.
+ */
+function dedupePeerDeps(file: string, options: InternalResolveOptions) {
+  if (
+    file &&
+    !file.includes('node_modules') &&
+    !file.startsWith(options.root + '/')
+  ) {
+    const pkgPath = lookupFile(path.dirname(file), ['package.json'], true)
+    if (pkgPath) {
+      const pkg = loadPackageData(pkgPath).data
+      if (pkg.peerDependencies) {
+        const dedupe = new Set(options.dedupe)
+        const oldSize = dedupe.size
+        Object.keys(pkg.peerDependencies).forEach((id) => dedupe.add(id))
+        if (dedupe.size > oldSize) {
+          return Array.from(dedupe)
+        }
+      }
+    }
+  }
+  return options.dedupe
 }

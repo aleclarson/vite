@@ -579,7 +579,7 @@ export function resolvePackageData(
   }
 }
 
-function loadPackageData(pkgPath: string, cacheKey = pkgPath) {
+export function loadPackageData(pkgPath: string, cacheKey = pkgPath) {
   const data = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
   const pkgDir = path.dirname(pkgPath)
   const { sideEffects } = data
