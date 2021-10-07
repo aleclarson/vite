@@ -56,6 +56,7 @@ import { searchForWorkspaceRoot } from './searchRoot'
 import { CLIENT_DIR } from '../constants'
 import { ssrRewriteStacktrace } from '../ssr/ssrStacktrace'
 import { invalidatePackageData } from '../packages'
+import { printHttpServerUrls } from '../logger'
 
 export { searchForWorkspaceRoot } from './searchRoot'
 
@@ -291,6 +292,10 @@ export interface ViteDevServer {
    */
   close(): Promise<void>
   /**
+   * Print server urls
+   */
+  printUrls(): void
+  /**
    * @internal
    */
   _optimizeDepsMetadata: DepOptimizationMetadata | null
@@ -413,6 +418,13 @@ export async function createServer(
         container.close(),
         closeHttpServer()
       ])
+    },
+    printUrls() {
+      if (httpServer) {
+        printHttpServerUrls(httpServer, config)
+      } else {
+        throw new Error('cannot print server URLs in middleware mode.')
+      }
     },
     _optimizeDepsMetadata: null,
     _ssrExternals: null,
