@@ -21,6 +21,7 @@ export type {
   ResolvedServerOptions
 } from './server'
 export type {
+  ViteBuild,
   BuildOptions,
   LibraryOptions,
   LibraryFormats,

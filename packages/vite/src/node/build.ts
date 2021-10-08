@@ -5,6 +5,7 @@ import { resolveConfig, InlineConfig, ResolvedConfig } from './config'
 import Rollup, {
   Plugin,
   RollupBuild,
+  RollupCache,
   RollupOptions,
   RollupWarning,
   WarningHandler,
@@ -23,7 +24,13 @@ import { buildHtmlPlugin } from './plugins/html'
 import { buildEsbuildPlugin } from './plugins/esbuild'
 import { terserPlugin } from './plugins/terser'
 import { Terser } from 'types/terser'
-import { copyDir, emptyDir, lookupFile, normalizePath } from './utils'
+import {
+  copyDir,
+  emptyDir,
+  lookupFile,
+  mapSerial,
+  normalizePath
+} from './utils'
 import { manifestPlugin } from './plugins/manifest'
 import commonjsPlugin from '@rollup/plugin-commonjs'
 import { RollupCommonJSOptions } from 'types/commonjs'
@@ -324,13 +331,18 @@ let parallelCallCounts = 0
 // bundle is even pushed.
 const parallelBuilds: RollupBuild[] = []
 
+export type ViteBuild = {
+  output: RollupOutput[]
+  cache: RollupCache | undefined
+}
+
 /**
  * Bundles the app for production.
  * Returns a Promise containing the build result.
  */
 export async function build(
   inlineConfig: InlineConfig = {}
-): Promise<RollupOutput | RollupOutput[] | RollupWatcher> {
+): Promise<ViteBuild | RollupWatcher> {
   parallelCallCounts++
   try {
     return await doBuild(inlineConfig)
@@ -345,7 +357,7 @@ export async function build(
 
 async function doBuild(
   inlineConfig: InlineConfig = {}
-): Promise<RollupOutput | RollupOutput[] | RollupWatcher> {
+): Promise<ViteBuild | RollupWatcher> {
   const config = await resolveConfig(inlineConfig, 'build', 'production')
   const options = config.build
   const ssr = !!options.ssr
@@ -479,19 +491,12 @@ async function doBuild(
     if (config.build.watch) {
       config.logger.info(chalk.cyanBright(`\nwatching for file changes...`))
 
-      const output: OutputOptions[] = []
-      if (Array.isArray(outputs)) {
-        for (const resolvedOutput of outputs) {
-          output.push(buildOutputOptions(resolvedOutput))
-        }
-      } else {
-        output.push(buildOutputOptions(outputs))
-      }
-
       const watcherOptions = config.build.watch
       const watcher = rollup.watch({
         ...rollupOptions,
-        output,
+        output: outputs.length
+          ? outputs.map(buildOutputOptions)
+          : buildOutputOptions(),
         watch: {
           ...watcherOptions,
           chokidar: {
@@ -524,28 +529,22 @@ async function doBuild(
       return watcher
     }
 
-    // write or generate files with rollup
     const bundle = await rollup.rollup(rollupOptions)
     parallelBuilds.push(bundle)
-
-    const generate = (output: OutputOptions = {}) => {
-      return bundle[options.write ? 'write' : 'generate'](
-        buildOutputOptions(output)
-      )
-    }
 
     if (options.write) {
       prepareOutDir(outDir, options.emptyOutDir, config)
     }
 
-    if (Array.isArray(outputs)) {
-      const res = []
-      for (const output of outputs) {
-        res.push(await generate(output))
-      }
-      return res
-    } else {
-      return await generate(outputs)
+    const generate = bundle[options.write ? 'write' : 'generate'].bind(bundle)
+    return {
+      output: await mapSerial(
+        outputs.length
+          ? outputs.map(buildOutputOptions)
+          : [buildOutputOptions()],
+        generate
+      ),
+      cache: bundle.cache
     }
   } catch (e) {
     outputBuildError(e)
@@ -659,7 +658,7 @@ function resolveBuildOutputs(
   outputs: OutputOptions | OutputOptions[] | undefined,
   libOptions: LibraryOptions | false,
   logger: Logger
-): OutputOptions | OutputOptions[] | undefined {
+): OutputOptions[] {
   if (libOptions) {
     const formats = libOptions.formats || ['es', 'umd']
     if (
@@ -685,7 +684,7 @@ function resolveBuildOutputs(
       )
     }
   }
-  return outputs
+  return !outputs ? [] : Array.isArray(outputs) ? outputs : [outputs]
 }
 
 const warningIgnoreList = [`CIRCULAR_DEPENDENCY`, `THIS_IS_UNDEFINED`]

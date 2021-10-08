@@ -568,3 +568,14 @@ export function toUpperCaseDriveLetter(pathName: string): string {
 
 export const multilineCommentsRE = /\/\*(.|[\r\n])*?\*\//gm
 export const singlelineCommentsRE = /\/\/.*/g
+
+export async function mapSerial<T, U>(
+  inputs: readonly T[],
+  mapper: (input: T) => Promise<U>
+) {
+  const results: U[] = []
+  for (const input of inputs) {
+    results.push(await mapper(input))
+  }
+  return results
+}
