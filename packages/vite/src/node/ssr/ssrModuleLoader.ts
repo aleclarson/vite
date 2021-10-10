@@ -2,7 +2,7 @@ import vm from 'vm'
 import path from 'path'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
-import { ViteDevServer } from '..'
+import { ViteDevServer } from '../server'
 import { lookupFile, unwrapId } from '../utils'
 import { ssrRewriteStacktrace } from './ssrStacktrace'
 import {
@@ -12,7 +12,7 @@ import {
   ssrImportMetaKey,
   ssrDynamicImportKey
 } from './ssrTransform'
-import { transformRequest } from '../server/transformRequest'
+import { transformRequest, TransformResult } from '../server/transformRequest'
 import { injectSourcesContent } from '../server/sourcemap'
 import {
   InternalResolveOptions,
@@ -25,6 +25,8 @@ import { createSSRExternalsFilter } from './ssrExternal'
 type SSRModule = Record<string, any>
 
 interface ModuleContext {
+  /** Pending transform requests by their URL */
+  pendingTransforms: Map<string, Promise<TransformResult>>
   /** Pending modules by their URL */
   pendingModules: Map<string, Promise<SSRModule>>
   /** Loaded modules by their URL */
@@ -47,6 +49,7 @@ export async function ssrLoadModule(
   }
   url = unwrapId(url)
   context ??= {
+    pendingTransforms: new Map(),
     pendingModules: new Map(),
     modules: new Map(),
     imports: new Map(),
@@ -90,14 +93,6 @@ async function instantiateModule(
     return mod.ssrModule
   }
 
-  const result =
-    mod.ssrTransformResult ||
-    (await transformRequest(url, server, { ssr: true }))
-  if (!result) {
-    // TODO more info? is this even necessary?
-    throw new Error(`failed to load module for ssr: ${url}`)
-  }
-
   const ssrModule = {
     [Symbol.toStringTag]: 'Module'
   }
@@ -106,6 +101,19 @@ async function instantiateModule(
   // Tolerate circular imports by ensuring the module can be
   // referenced before it's been instantiated.
   context.modules.set(url, ssrModule)
+
+  const { code, map, deps } =
+    mod.ssrTransformResult ||
+    (await (context.pendingTransforms.get(url) ||
+      ssrTransformRequest(url, undefined, server, context)))
+
+  // Transform dependencies eagerly to reduce load times, but don't
+  // wait for them to finish, since ssrImport will do that.
+  deps!.forEach((dep) => {
+    if (dep[0] === '/' || !context.isExternal(dep)) {
+      ssrTransformRequest(dep, url, server, context)
+    }
+  })
 
   urlStack = urlStack.concat(url)
   const isCircular = (url: string) => urlStack.includes(url)
@@ -192,9 +200,8 @@ async function instantiateModule(
   }
 
   let ssrModuleImpl =
-    `(0,async function(${Object.keys(ssrArguments)}){\n` + result.code + `\n})`
+    `(0,async function(${Object.keys(ssrArguments)}){\n` + code + `\n})`
 
-  const { map } = result
   if (map?.mappings) {
     if (filename) {
       map.file = filename
@@ -213,6 +220,36 @@ async function instantiateModule(
 
   mod.ssrModule = Object.freeze(ssrModule)
   return ssrModule
+}
+
+async function ssrTransformRequest(
+  url: string,
+  importer: string | undefined,
+  server: ViteDevServer,
+  context: ModuleContext
+) {
+  let request = context.pendingTransforms.get(url)
+  if (!request) {
+    context.pendingTransforms.set(
+      url,
+      (request = transformRequest(url, server, { ssr: true }).then((result) => {
+        if (result === null) {
+          // Mimic an error from failed dynamic import.
+          const err: any = new Error(`Cannot find module '${url}'`)
+          if (importer) {
+            err.message += ` imported from ${importer}`
+          }
+          err.code = 'ERR_MODULE_NOT_FOUND'
+          throw err
+        }
+        context.pendingTransforms.delete(url)
+        return result
+      }))
+    )
+    // Ignore unhandled rejection until the module is imported.
+    request.catch(() => {})
+  }
+  return request
 }
 
 function nodeRequire(
