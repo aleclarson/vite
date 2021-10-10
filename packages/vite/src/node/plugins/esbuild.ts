@@ -172,7 +172,7 @@ export function esbuildPlugin(options: ESBuildOptions = {}): Plugin {
     configureServer(_server) {
       server = _server
       server.watcher
-        .on('add', reloadOnTsconfigChange)
+        ?.on('add', reloadOnTsconfigChange)
         .on('change', reloadOnTsconfigChange)
         .on('unlink', reloadOnTsconfigChange)
     },

@@ -30,7 +30,7 @@ import {
 import { timeMiddleware } from './middlewares/time'
 import { ModuleGraph, ModuleNode } from './moduleGraph'
 import { Connect } from 'types/connect'
-import { ensureLeadingSlash, normalizePath } from '../utils'
+import { ensureLeadingSlash, isObject, normalizePath } from '../utils'
 import { errorMiddleware, prepareError } from './middlewares/error'
 import { handleHMRUpdate, HmrOptions, handleFileAddUnlink } from './hmr'
 import { openBrowser } from './openBrowser'
@@ -85,7 +85,7 @@ export interface ServerOptions {
    * chokidar watch options
    * https://github.com/paulmillr/chokidar#api
    */
-  watch?: WatchOptions
+  watch?: WatchOptions | boolean
   /**
    * Configure custom proxy rules for the dev server. Expects an object
    * of `{ key: options }` pairs.
@@ -221,7 +221,7 @@ export interface ViteDevServer {
    * chokidar watcher instance
    * https://github.com/paulmillr/chokidar#api
    */
-  watcher: FSWatcher
+  watcher: FSWatcher | null
   /**
    * web socket server with `send(payload)` method
    */
@@ -339,19 +339,8 @@ export async function createServer(
       ? createWebSocketServer(httpServer, config, httpsOptions)
       : null
 
-  const { ignored = [], ...watchOptions } = serverConfig.watch || {}
-  const watcher = chokidar.watch(path.resolve(root), {
-    ignored: [
-      '**/node_modules/**',
-      '**/.git/**',
-      ...(Array.isArray(ignored) ? ignored : [ignored])
-    ],
-    ignoreInitial: true,
-    ignorePermissionErrors: true,
-    disableGlobbing: true,
-    ...watchOptions,
-    followSymlinks: false
-  }) as FSWatcher
+  const watcher =
+    serverConfig.watch !== false ? createWatcher(root, serverConfig) : null
 
   const plugins = config.plugins
   const container = await createPluginContainer(config, watcher)
@@ -402,7 +391,7 @@ export async function createServer(
       }
 
       await Promise.all([
-        watcher.close(),
+        watcher?.close(),
         ws?.close(),
         container.close(),
         closeHttpServer()
@@ -433,29 +422,28 @@ export async function createServer(
     process.stdin.on('end', exitProcess)
   }
 
-  watcher.on('change', async (file) => {
-    file = normalizePath(file)
-    // invalidate module graph cache on file change
-    moduleGraph.onFileChange(file)
-    if (serverConfig.hmr !== false) {
-      try {
-        await handleHMRUpdate(file, server)
-      } catch (err) {
-        ws?.send({
-          type: 'error',
-          err: prepareError(err)
-        })
+  watcher
+    ?.on('change', async (file) => {
+      file = normalizePath(file)
+      // invalidate module graph cache on file change
+      moduleGraph.onFileChange(file)
+      if (serverConfig.hmr !== false) {
+        try {
+          await handleHMRUpdate(file, server)
+        } catch (err) {
+          ws?.send({
+            type: 'error',
+            err: prepareError(err)
+          })
+        }
       }
-    }
-  })
-
-  watcher.on('add', (file) => {
-    handleFileAddUnlink(normalizePath(file), server)
-  })
-
-  watcher.on('unlink', (file) => {
-    handleFileAddUnlink(normalizePath(file), server, true)
-  })
+    })
+    .on('add', (file) => {
+      handleFileAddUnlink(normalizePath(file), server)
+    })
+    .on('unlink', (file) => {
+      handleFileAddUnlink(normalizePath(file), server, true)
+    })
 
   if (!middlewareMode && httpServer) {
     httpServer.once('listening', () => {
@@ -702,4 +690,23 @@ export function resolveServerOptions(
   }
   server.static = resolveStaticOptions(server)
   return server as ResolvedServerOptions
+}
+
+function createWatcher(root: string, serverOptions: ServerOptions) {
+  const { ignored = [], ...watchOptions } = isObject(serverOptions.watch)
+    ? serverOptions.watch
+    : {}
+
+  return chokidar.watch(path.resolve(root), {
+    ignored: [
+      '**/node_modules/**',
+      '**/.git/**',
+      ...(Array.isArray(ignored) ? ignored : [ignored])
+    ],
+    ignoreInitial: true,
+    ignorePermissionErrors: true,
+    disableGlobbing: true,
+    ...watchOptions,
+    followSymlinks: false
+  }) as FSWatcher
 }

@@ -417,11 +417,12 @@ export function ensureLeadingSlash(path: string): string {
 }
 
 export function ensureWatchedFile(
-  watcher: FSWatcher,
+  watcher: FSWatcher | null,
   file: string | null,
   root: string
 ): void {
   if (
+    watcher &&
     file &&
     // only need to watch if out of root
     !file.startsWith(root + '/') &&

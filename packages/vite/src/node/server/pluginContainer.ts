@@ -119,7 +119,7 @@ export let parser = acorn.Parser.extend(
 
 export async function createPluginContainer(
   { plugins, logger, root, build: { rollupOptions } }: ResolvedConfig,
-  watcher?: FSWatcher
+  watcher?: FSWatcher | null
 ): Promise<PluginContainer> {
   const isDebug = process.env.DEBUG
 
