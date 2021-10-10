@@ -48,10 +48,6 @@ import { TransformOptions as EsbuildTransformOptions } from 'esbuild'
 import { DepOptimizationMetadata, optimizeDeps } from '../optimizer'
 import { ssrLoadModule } from '../ssr/ssrModuleLoader'
 import { resolveSSRExternal } from '../ssr/ssrExternal'
-import {
-  rebindErrorStacktrace,
-  ssrRewriteStacktrace
-} from '../ssr/ssrStacktrace'
 import { createMissingImporterRegisterFn } from '../optimizer/registerMissing'
 import { resolveHostname } from '../utils'
 import { searchForWorkspaceRoot } from './searchRoot'
@@ -265,10 +261,6 @@ export interface ViteDevServer {
    */
   ssrLoadModule(url: string): Promise<Record<string, any>>
   /**
-   * Fix ssr error stacktrace
-   */
-  ssrFixStacktrace(e: Error): void
-  /**
    * Start the server.
    */
   listen(port?: number, isRestart?: boolean): Promise<ViteDevServer>
@@ -385,11 +377,6 @@ export async function createServer(
           : []
       )
       return ssrLoadModule(url, server)
-    },
-    ssrFixStacktrace(e) {
-      if (e.stack) {
-        rebindErrorStacktrace(e, ssrRewriteStacktrace(e, moduleGraph))
-      }
     },
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)

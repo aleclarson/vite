@@ -9,13 +9,13 @@ const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 export function ssrRewriteStacktrace(
   error: Error & { code?: unknown; errors?: any[] },
   moduleGraph: ModuleGraph
-): string {
+): void {
   let code!: string
   let location: SourceLocation | undefined
   let stack = error.stack!
 
   if (error.code == 'MODULE_NOT_FOUND') {
-    return stack
+    return
   }
 
   const header = error.constructor.name + ': ' + error.message + '\n'
@@ -44,7 +44,7 @@ export function ssrRewriteStacktrace(
   // If something else comes after the error message,
   // then we probably already processed this stack trace.
   if (!stackFrameRE.test(stack)) {
-    return error.stack!
+    return
   }
 
   // Prepend the syntax frame.
@@ -107,22 +107,27 @@ export function ssrRewriteStacktrace(
       })
     : error.message
 
-  return message + '\n\n' + stackFrames.join('\n')
+  stack = message + '\n\n' + stackFrames.join('\n')
+  rebindErrorStacktrace(error, stack)
 }
 
-export function rebindErrorStacktrace(e: Error, stacktrace: string): void {
-  const { configurable, writable } = Object.getOwnPropertyDescriptor(
-    e,
-    'stack'
-  )!
-  if (configurable) {
+function rebindErrorStacktrace(
+  e: Error & { originalStack?: string },
+  stacktrace: string
+): void {
+  const stack = Object.getOwnPropertyDescriptor(e, 'stack')!
+  Object.defineProperty(e, 'originalStack', {
+    value: stack.value,
+    configurable: true
+  })
+  if (stack.configurable) {
     Object.defineProperty(e, 'stack', {
       value: stacktrace,
       enumerable: true,
       configurable: true,
       writable: true
     })
-  } else if (writable) {
+  } else if (stack.writable) {
     e.stack = stacktrace
   }
 }

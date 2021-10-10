@@ -6,7 +6,7 @@ import { createFilter } from '@rollup/pluginutils'
 import { ViteDevServer } from '..'
 import { lookupFile, unwrapId } from '../utils'
 import { shouldExternalizeForSSR } from './ssrExternal'
-import { rebindErrorStacktrace, ssrRewriteStacktrace } from './ssrStacktrace'
+import { ssrRewriteStacktrace } from './ssrStacktrace'
 import {
   ssrExportAllKey,
   ssrModuleExportsKey,
@@ -66,18 +66,10 @@ export async function ssrLoadModule(
   modulePromise
     .catch((e) => {
       pendingImports.delete(url)
-
-      const { logger } = server.config
-      if (!logger.hasErrorLogged(e)) {
+      if (!e.originalStack) {
         try {
-          rebindErrorStacktrace(e, ssrRewriteStacktrace(e, server.moduleGraph))
+          ssrRewriteStacktrace(e, server.moduleGraph)
         } catch {}
-
-        logger.error(`Error when evaluating SSR module ${url}:\n\n${e.stack}`, {
-          timestamp: true,
-          clear: server.config.clearScreen,
-          error: e
-        })
       }
     })
     .finally(() => {
