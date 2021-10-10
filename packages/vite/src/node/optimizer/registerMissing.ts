@@ -2,7 +2,6 @@ import chalk from 'chalk'
 import { optimizeDeps } from '.'
 import { ViteDevServer } from '..'
 import { resolveSSRExternal } from '../ssr/ssrExternal'
-import { ssrWaitForModules } from '../ssr/ssrModuleLoader'
 
 /**
  * The amount to wait for requests to register newly found dependencies before triggering
@@ -75,17 +74,13 @@ export function createMissingImporterRegisterFn(
       server._pendingReload = pendingResolve = null
     }
 
-    // Wait for SSR modules to finish loading, or else we risk a
-    // race condition that leads to imported module being null.
-    ssrWaitForModules().then(() => {
-      // All modules need to be transformed again to ensure they
-      // are importing the newly optimized dependencies.
-      server.moduleGraph.invalidateAll()
+    // All modules need to be transformed again to ensure they
+    // are importing the newly optimized dependencies.
+    server.moduleGraph.invalidateAll()
 
-      server.ws.send({
-        type: 'full-reload',
-        path: '*'
-      })
+    server.ws.send({
+      type: 'full-reload',
+      path: '*'
     })
   }
 

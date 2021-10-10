@@ -22,66 +22,62 @@ import {
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
 import { createSSRExternalsFilter } from './ssrExternal'
 
-interface SSRContext {
-  global: NodeJS.Global
-}
-
 type SSRModule = Record<string, any>
 
-const pendingModules = new Map<string, Promise<SSRModule>>()
-const pendingImports = new Map<string, string[]>()
-
-export async function ssrWaitForModules(): Promise<void> {
-  const ignoreError = () => {}
-  await Promise.all(
-    Array.from(pendingModules.values(), (modulePromise) =>
-      modulePromise.catch(ignoreError)
-    )
-  )
-  if (pendingModules.size) {
-    await ssrWaitForModules()
-  }
+interface ModuleContext {
+  /** Pending modules by their URL */
+  pendingModules: Map<string, Promise<SSRModule>>
+  /** Loaded modules by their URL */
+  modules: Map<string, SSRModule>
+  /** Unresolved imports by importer URL */
+  imports: Map<string, string[]>
+  /** Returns true if a module should be loaded with Node require */
+  isExternal: (dep: string) => boolean
 }
 
 export async function ssrLoadModule(
   url: string,
   server: ViteDevServer,
-  context: SSRContext = { global },
-  urlStack: string[] = []
+  nodeGlobal: NodeJS.Global = global,
+  urlStack: string[] = [],
+  context: ModuleContext = {
+    pendingModules: new Map(),
+    modules: new Map(),
+    imports: new Map(),
+    isExternal: createSSRExternalsFilter(
+      server._ssrExternals!,
+      server.config.ssr?.noExternal
+    )
+  }
 ): Promise<SSRModule> {
   url = unwrapId(url)
-
-  // when we instantiate multiple dependency modules in parallel, they may
-  // point to shared modules. We need to avoid duplicate instantiation attempts
-  // by register every module as pending synchronously so that all subsequent
-  // request to that module are simply waiting on the same promise.
-  const pending = pendingModules.get(url)
-  if (pending) {
-    return pending
-  }
-
-  const modulePromise = instantiateModule(url, server, context, urlStack)
-  pendingModules.set(url, modulePromise)
-  modulePromise
-    .catch((e) => {
-      pendingImports.delete(url)
+  let modulePromise = context.pendingModules.get(url)
+  if (!modulePromise) {
+    modulePromise = instantiateModule(
+      url,
+      server,
+      nodeGlobal,
+      urlStack,
+      context
+    )
+    context.pendingModules.set(url, modulePromise)
+    modulePromise.catch((e) => {
       if (!e.originalStack) {
         try {
           ssrRewriteStacktrace(e, server.moduleGraph)
         } catch {}
       }
     })
-    .finally(() => {
-      pendingModules.delete(url)
-    })
+  }
   return modulePromise
 }
 
 async function instantiateModule(
   url: string,
   server: ViteDevServer,
-  context: SSRContext = { global },
-  urlStack: string[] = []
+  nodeGlobal: NodeJS.Global,
+  urlStack: string[],
+  context: ModuleContext
 ): Promise<SSRModule> {
   const { moduleGraph } = server
   const mod = await moduleGraph.ensureEntryFromUrl(url)
@@ -105,7 +101,7 @@ async function instantiateModule(
 
   // Tolerate circular imports by ensuring the module can be
   // referenced before it's been instantiated.
-  mod.ssrModule = ssrModule
+  context.modules.set(url, ssrModule)
 
   urlStack = urlStack.concat(url)
   const isCircular = (url: string) => urlStack.includes(url)
@@ -137,39 +133,34 @@ async function instantiateModule(
     resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
   }
 
-  const isExternal = createSSRExternalsFilter(
-    server._ssrExternals!,
-    server.config.ssr?.noExternal
-  )
-
   // Since dynamic imports can happen in parallel, we need to
   // account for multiple pending deps and duplicate imports.
-  const pendingDeps: string[] = []
+  const imports: string[] = []
 
   const ssrImport = async (dep: string) => {
     if (server._pendingReload) {
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
     }
-    if (dep[0] !== '/' && isExternal(dep)) {
+    if (dep[0] !== '/' && context.isExternal(dep)) {
       return nodeRequire(dep, filename, resolveOptions)
     }
-    if (!isCircular(dep) && !pendingImports.get(dep)?.some(isCircular)) {
-      pendingDeps.push(dep)
-      if (pendingDeps.length === 1) {
-        pendingImports.set(url, pendingDeps)
+    if (!isCircular(dep) && !context.imports.get(dep)?.some(isCircular)) {
+      imports.push(dep)
+      if (imports.length === 1) {
+        context.imports.set(url, imports)
       }
-      await ssrLoadModule(dep, server, context, urlStack)
-      if (pendingDeps.length === 1) {
-        pendingImports.delete(url)
-      } else {
-        pendingDeps.splice(pendingDeps.indexOf(dep), 1)
+      try {
+        return await ssrLoadModule(dep, server, nodeGlobal, urlStack, context)
+      } finally {
+        if (imports.length === 1) {
+          context.imports.delete(url)
+        } else {
+          imports.splice(imports.indexOf(dep), 1)
+        }
       }
     }
-    // Use `getModuleByUrl` instead of accessing `urlToModuleMap` directly
-    // so that bare imports added to `ssr.noExternal` are normalized.
-    const depModule = await moduleGraph.getModuleByUrl(dep)
-    return depModule?.ssrModule
+    return context.modules.get(dep)
   }
 
   function ssrExportAll(sourceModule: any) {
@@ -188,7 +179,7 @@ async function instantiateModule(
 
   const ssrImportMeta = { url }
   const ssrArguments: Record<string, any> = {
-    global: context.global,
+    global: nodeGlobal,
     [ssrModuleExportsKey]: ssrModule,
     [ssrImportMetaKey]: ssrImportMeta,
     [ssrImportKey]: ssrImport,
@@ -216,7 +207,8 @@ async function instantiateModule(
 
   await ssrModuleInit(...Object.values(ssrArguments))
 
-  return Object.freeze(ssrModule)
+  mod.ssrModule = Object.freeze(ssrModule)
+  return ssrModule
 }
 
 function nodeRequire(
