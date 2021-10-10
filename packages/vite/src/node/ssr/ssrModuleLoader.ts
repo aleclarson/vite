@@ -40,7 +40,13 @@ export async function ssrLoadModule(
   server: ViteDevServer,
   nodeGlobal: NodeJS.Global = global,
   urlStack: string[] = [],
-  context: ModuleContext = {
+  context?: ModuleContext
+): Promise<SSRModule> {
+  if (server.closed) {
+    throw Error('Server is closed')
+  }
+  url = unwrapId(url)
+  context ??= {
     pendingModules: new Map(),
     modules: new Map(),
     imports: new Map(),
@@ -49,8 +55,6 @@ export async function ssrLoadModule(
       server.config.ssr?.noExternal
     )
   }
-): Promise<SSRModule> {
-  url = unwrapId(url)
   let modulePromise = context.pendingModules.get(url)
   if (!modulePromise) {
     modulePromise = instantiateModule(

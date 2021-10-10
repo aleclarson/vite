@@ -194,6 +194,7 @@ export type ServerHook = (
 ) => (() => void) | void | Promise<(() => void) | void>
 
 export interface ViteDevServer {
+  closed: boolean
   /**
    * The resolved vite config object
    */
@@ -390,7 +391,9 @@ export async function createServer(
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)
     },
+    closed: false,
     async close() {
+      this.closed = true
       process.off('SIGTERM', exitProcess)
 
       if (!middlewareMode && process.env.CI !== 'true') {
