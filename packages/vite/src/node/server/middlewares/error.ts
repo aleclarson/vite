@@ -50,7 +50,7 @@ export function logError(server: ViteDevServer, err: RollupError): void {
     error: err
   })
 
-  server.ws.send({
+  server.ws?.send({
     type: 'error',
     err: prepareError(err)
   })

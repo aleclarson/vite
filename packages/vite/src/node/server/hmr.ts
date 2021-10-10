@@ -68,7 +68,7 @@ export async function handleHMRUpdate(
 
   // (dev only) the client itself cannot be hot updated.
   if (file.startsWith(normalizedClientDir)) {
-    ws.send({
+    ws?.send({
       type: 'full-reload',
       path: '*'
     })
@@ -104,7 +104,7 @@ export async function handleHMRUpdate(
         clear: true,
         timestamp: true
       })
-      ws.send({
+      ws?.send({
         type: 'full-reload',
         path: config.server.middlewareMode
           ? '*'
@@ -161,7 +161,7 @@ function updateModules(
       clear: true,
       timestamp: true
     })
-    ws.send({
+    ws?.send({
       type: 'full-reload'
     })
   } else {
@@ -171,7 +171,7 @@ function updateModules(
         .join('\n'),
       { clear: true, timestamp: true }
     )
-    ws.send({
+    ws?.send({
       type: 'update',
       updates
     })
@@ -299,7 +299,7 @@ export function handlePrunedModules(
     mod.lastHMRTimestamp = t
     debugHmr(`[dispose] ${chalk.dim(mod.file)}`)
   })
-  ws.send({
+  ws?.send({
     type: 'prune',
     paths: [...mods].map((m) => m.url)
   })

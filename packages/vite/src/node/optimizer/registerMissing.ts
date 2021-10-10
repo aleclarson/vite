@@ -78,7 +78,7 @@ export function createMissingImporterRegisterFn(
     // are importing the newly optimized dependencies.
     server.moduleGraph.invalidateAll()
 
-    server.ws.send({
+    server.ws?.send({
       type: 'full-reload',
       path: '*'
     })

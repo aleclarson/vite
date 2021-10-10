@@ -59,6 +59,12 @@ export interface ServerOptions {
   host?: string | boolean
   port?: number
   /**
+   * Set to false to disable websockets. This option shouldn't be used
+   * unless you know what you're doing.
+   * @default true
+   */
+  wss?: boolean
+  /**
    * Enable TLS + HTTP/2.
    * Note: this downgrades to TLS only when the proxy option is also used.
    */
@@ -218,7 +224,7 @@ export interface ViteDevServer {
   /**
    * web socket server with `send(payload)` method
    */
-  ws: WebSocketServer
+  ws: WebSocketServer | null
   /**
    * Rollup plugin container that can run plugin hooks on a given file
    */
@@ -326,7 +332,10 @@ export async function createServer(
   const httpServer = middlewareMode
     ? null
     : await resolveHttpServer(serverConfig, middlewares, httpsOptions)
-  const ws = createWebSocketServer(httpServer, config, httpsOptions)
+  const ws =
+    serverConfig.wss !== false
+      ? createWebSocketServer(httpServer, config, httpsOptions)
+      : null
 
   const { ignored = [], ...watchOptions } = serverConfig.watch || {}
   const watcher = chokidar.watch(path.resolve(root), {
@@ -390,7 +399,7 @@ export async function createServer(
 
       await Promise.all([
         watcher.close(),
-        ws.close(),
+        ws?.close(),
         container.close(),
         closeHttpServer()
       ])
@@ -428,7 +437,7 @@ export async function createServer(
       try {
         await handleHMRUpdate(file, server)
       } catch (err) {
-        ws.send({
+        ws?.send({
           type: 'error',
           err: prepareError(err)
         })

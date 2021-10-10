@@ -298,7 +298,7 @@ function reloadOnTsconfigChange(changedFile: string) {
     // clear module graph to remove code compiled with outdated config
     server.moduleGraph.invalidateAll()
     // force full reload
-    server.ws.send({
+    server.ws?.send({
       type: 'full-reload',
       path: '*'
     })
