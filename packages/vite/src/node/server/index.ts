@@ -267,6 +267,7 @@ export interface ViteDevServer {
    * Load a given URL as an instantiated module for SSR.
    */
   ssrLoadModule(url: string): Promise<Record<string, any>>
+  ssrLoadModule(urls: string[]): Promise<Record<string, any>[]>
   /**
    * Start the server.
    */
@@ -386,7 +387,7 @@ export async function createServer(
           ? Object.keys(server._optimizeDepsMetadata.optimized)
           : []
       )
-      return ssrLoadModule(url, server)
+      return ssrLoadModule(url as string[], server)
     },
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)

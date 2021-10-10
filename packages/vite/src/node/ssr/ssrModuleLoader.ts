@@ -40,14 +40,29 @@ interface ModuleContext {
 export async function ssrLoadModule(
   url: string,
   server: ViteDevServer,
+  nodeGlobal?: NodeJS.Global,
+  urlStack?: string[],
+  context?: ModuleContext
+): Promise<SSRModule>
+
+export async function ssrLoadModule(
+  urls: string[],
+  server: ViteDevServer,
+  nodeGlobal?: NodeJS.Global,
+  urlStack?: string[],
+  context?: ModuleContext
+): Promise<SSRModule[]>
+
+export async function ssrLoadModule(
+  url: string | string[],
+  server: ViteDevServer,
   nodeGlobal: NodeJS.Global = global,
   urlStack: string[] = [],
   context?: ModuleContext
-): Promise<SSRModule> {
+): Promise<SSRModule | SSRModule[]> {
   if (server.closed) {
     throw Error('Server is closed')
   }
-  url = unwrapId(url)
   context ??= {
     pendingTransforms: new Map(),
     pendingModules: new Map(),
@@ -58,6 +73,15 @@ export async function ssrLoadModule(
       server.config.ssr?.noExternal
     )
   }
+  if (Array.isArray(url)) {
+    // Load multiple entries in parallel.
+    return Promise.all(
+      url.map((url) =>
+        ssrLoadModule(url, server, nodeGlobal, urlStack, context)
+      )
+    )
+  }
+  url = unwrapId(url)
   let modulePromise = context.pendingModules.get(url)
   if (!modulePromise) {
     modulePromise = instantiateModule(
