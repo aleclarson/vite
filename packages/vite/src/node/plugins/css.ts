@@ -31,7 +31,8 @@ import {
   assetUrlRE,
   registerAssetToChunk,
   fileToUrl,
-  checkPublicFile
+  checkPublicFile,
+  urlToBuiltUrl
 } from './asset'
 import MagicString from 'magic-string'
 import * as Postcss from 'postcss'
@@ -172,6 +173,9 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
         const resolved = await resolveUrl(url, importer)
         if (resolved) {
           return fileToUrl(resolved, config, this)
+        }
+        if (importer && config.command === 'build') {
+          return urlToBuiltUrl(url, importer, config, this)
         }
         return url
       }
