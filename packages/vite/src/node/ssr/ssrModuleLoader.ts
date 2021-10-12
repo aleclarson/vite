@@ -350,7 +350,7 @@ function dedupePeerDeps(file: string, options: InternalResolveOptions) {
   ) {
     const pkgPath = lookupFile(path.dirname(file), ['package.json'], true)
     if (pkgPath) {
-      const pkg = loadPackageData(pkgPath).data
+      const pkg = loadPackageData(pkgPath, options.preserveSymlinks).data
       if (pkg.peerDependencies) {
         const dedupe = new Set(options.dedupe)
         const oldSize = dedupe.size

@@ -370,7 +370,7 @@ function tryResolveFile(
         const pkgPath = file + '/package.json'
         if (fs.existsSync(pkgPath)) {
           // path points to a node package
-          const pkg = loadPackageData(pkgPath)
+          const pkg = loadPackageData(pkgPath, options.preserveSymlinks)
           const resolved = resolvePackageEntry(file, pkg, options, targetWeb)
           return resolved
         }
@@ -565,7 +565,7 @@ const packageCache = new Map<string, PackageData>()
 export function resolvePackageData(
   id: string,
   basedir: string,
-  preserveSymlinks = false
+  preserveSymlinks?: boolean
 ): PackageData | undefined {
   const cacheKey = id + basedir
   if (packageCache.has(cacheKey)) {
@@ -573,13 +573,20 @@ export function resolvePackageData(
   }
   try {
     const pkgPath = resolveFrom(`${id}/package.json`, basedir, preserveSymlinks)
-    return loadPackageData(pkgPath, cacheKey)
+    return loadPackageData(pkgPath, preserveSymlinks, cacheKey)
   } catch (e) {
     isDebug && debug(`${chalk.red(`[failed loading package.json]`)} ${id}`)
   }
 }
 
-export function loadPackageData(pkgPath: string, cacheKey = pkgPath) {
+export function loadPackageData(
+  pkgPath: string,
+  preserveSymlinks?: boolean,
+  cacheKey = pkgPath
+) {
+  if (!preserveSymlinks) {
+    pkgPath = fs.realpathSync.native(pkgPath)
+  }
   const data = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
   const pkgDir = path.dirname(pkgPath)
 
