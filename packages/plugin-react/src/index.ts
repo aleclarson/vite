@@ -110,8 +110,11 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
     },
     async transform(code, id, ssr) {
       if (/\.[tj]sx?$/.test(id)) {
+        const moduleInfo = this.getModuleInfo(id)!
         const isNodeModules = id.includes('/node_modules/')
-        const isProjectFile = id.startsWith(projectRoot + '/') && !isNodeModules
+        const isProjectFile =
+          !moduleInfo.meta.filename ||
+          (id.startsWith(projectRoot + '/') && !isNodeModules)
 
         let plugins = isProjectFile ? [...userPlugins] : []
 
