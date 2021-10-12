@@ -44,6 +44,7 @@ import {
   transformWithEsbuild,
   ESBuildTransformResult
 } from '../plugins/esbuild'
+import { PackageData, resolvePackageData } from '../plugins/resolve'
 import { TransformOptions as EsbuildTransformOptions } from 'esbuild'
 import { DepOptimizationMetadata, optimizeDeps } from '../optimizer'
 import { ssrLoadModule } from '../ssr/ssrModuleLoader'
@@ -236,6 +237,15 @@ export interface ViteDevServer {
    */
   moduleGraph: ModuleGraph
   /**
+   * Load the `package.json` file for a given package name.
+   */
+  resolvePackageData(
+    pkgId: string,
+    importer?: string,
+    preserveSymlinks?: boolean,
+    dedupe?: string[] | false | undefined
+  ): PackageData | null
+  /**
    * Programmatically resolve, load and transform a URL and get the result
    * without going through the http request pipeline.
    */
@@ -342,6 +352,7 @@ export async function createServer(
   const watcher =
     serverConfig.watch !== false ? createWatcher(root, serverConfig) : null
 
+  const packageCache = new Map<string, PackageData>()
   const moduleGraph: ModuleGraph = new ModuleGraph((url) =>
     container.resolveId(url)
   )
@@ -366,6 +377,26 @@ export async function createServer(
     pluginContainer: container,
     ws,
     moduleGraph,
+    resolvePackageData(
+      pkgId,
+      importer,
+      preserveSymlinks = !!config.resolve.preserveSymlinks,
+      dedupe = config.resolve.dedupe
+    ) {
+      if (!importer || (dedupe && dedupe.includes(pkgId))) {
+        importer = config.root
+      }
+      const cacheKey = `${pkgId}&${importer}&${preserveSymlinks}`
+      let pkg = packageCache.get(cacheKey) || null
+      if (!pkg) {
+        pkg = resolvePackageData(pkgId, importer, preserveSymlinks)
+        if (pkg) {
+          packageCache.set(cacheKey, pkg)
+          watcher?.add(`${pkg.dir}/package.json`)
+        }
+      }
+      return pkg
+    },
     transformWithEsbuild,
     transformRequest(url, options) {
       return transformRequest(url, server, options)
@@ -427,6 +458,14 @@ export async function createServer(
   watcher
     ?.on('change', async (file) => {
       file = normalizePath(file)
+      if (file.endsWith('/package.json')) {
+        const pkgDir = path.dirname(file)
+        return packageCache.forEach((pkg, cacheKey) => {
+          if (pkg.dir === pkgDir) {
+            packageCache.delete(cacheKey)
+          }
+        })
+      }
       // invalidate module graph cache on file change
       moduleGraph.onFileChange(file)
       if (serverConfig.hmr !== false) {

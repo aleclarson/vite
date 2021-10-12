@@ -427,7 +427,9 @@ export function tryNodeResolve(
     basedir = nestedResolveFrom(nestedRoot, basedir, preserveSymlinks)
   }
 
-  const pkg = resolvePackageData(pkgId, basedir, preserveSymlinks)
+  const pkg = server
+    ? server.resolvePackageData(pkgId, basedir, preserveSymlinks, false)
+    : resolvePackageData(pkgId, basedir, preserveSymlinks)
 
   if (!pkg) {
     return
@@ -560,30 +562,28 @@ export interface PackageData {
   }
 }
 
-const packageCache = new Map<string, PackageData>()
-
 export function resolvePackageData(
   id: string,
   basedir: string,
-  preserveSymlinks?: boolean
-): PackageData | undefined {
-  const cacheKey = id + basedir
-  if (packageCache.has(cacheKey)) {
-    return packageCache.get(cacheKey)
-  }
+  preserveSymlinks = false
+): PackageData | null {
+  let pkgPath: string | undefined
   try {
-    const pkgPath = resolveFrom(`${id}/package.json`, basedir, preserveSymlinks)
-    return loadPackageData(pkgPath, preserveSymlinks, cacheKey)
+    pkgPath = resolveFrom(`${id}/package.json`, basedir, preserveSymlinks)
+    return loadPackageData(pkgPath, true)
   } catch (e) {
-    isDebug && debug(`${chalk.red(`[failed loading package.json]`)} ${id}`)
+    if (e instanceof SyntaxError) {
+      isDebug && debug(`Parsing failed: ${pkgPath}`)
+    }
+    // Ignore error for missing package.json
+    else if (e.code !== 'MODULE_NOT_FOUND') {
+      throw e
+    }
   }
+  return null
 }
 
-export function loadPackageData(
-  pkgPath: string,
-  preserveSymlinks?: boolean,
-  cacheKey = pkgPath
-) {
+export function loadPackageData(pkgPath: string, preserveSymlinks?: boolean) {
   if (!preserveSymlinks) {
     pkgPath = fs.realpathSync.native(pkgPath)
   }
@@ -626,7 +626,6 @@ export function loadPackageData(
       }
     }
   }
-  packageCache.set(cacheKey, pkg)
   return pkg
 }
 

@@ -179,7 +179,7 @@ async function instantiateModule(
       await server._pendingReload
     }
     if (dep[0] !== '/' && context.isExternal(dep)) {
-      return nodeRequire(dep, filename, resolveOptions)
+      return nodeRequire(dep, filename, resolveOptions, server)
     }
     if (!isCircular(dep) && !context.imports.get(dep)?.some(isCircular)) {
       imports.push(dep)
@@ -279,7 +279,8 @@ async function ssrTransformRequest(
 function nodeRequire(
   id: string,
   importer: string | null,
-  resolveOptions: InternalResolveOptions
+  resolveOptions: InternalResolveOptions,
+  server: ViteDevServer
 ) {
   const resolveOptionsMap = new Map<string, InternalResolveOptions>()
   const unhookNodeResolve = hookNodeResolve(
@@ -292,7 +293,7 @@ function nodeRequire(
         resolveOptions,
         resolveOptionsMap
       )
-      const resolved = tryNodeResolve(id, parent.id, resolveOpts, false)
+      const resolved = tryNodeResolve(id, parent.id, resolveOpts, false, server)
       if (!resolved) {
         throw Error(`Cannot find module '${id}' imported from '${parent.id}'`)
       }
