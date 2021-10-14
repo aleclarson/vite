@@ -109,7 +109,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
       )
     },
     async transform(code, id, ssr) {
-      if (/\.[tj]sx?$/.test(id)) {
+      if (/\.(mjs|[tj]sx?)$/.test(id)) {
         const moduleInfo = this.getModuleInfo(id)!
         const isNodeModules = id.includes('/node_modules/')
         const isProjectFile =
