@@ -8,6 +8,7 @@ export { createLogger, printHttpServerUrls } from './logger'
 export { transformWithEsbuild } from './plugins/esbuild'
 export { resolvePackageData, resolvePackageEntry } from './plugins/resolve'
 export { applyHtmlTransforms, resolveHtmlTransforms } from './plugins/html'
+export { minifyCSS } from './plugins/css'
 export { normalizePath } from './utils'
 
 // additional types
