@@ -169,10 +169,6 @@ async function instantiateModule(
     resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
   }
 
-  // Since dynamic imports can happen in parallel, we need to
-  // account for multiple pending deps and duplicate imports.
-  const imports: string[] = []
-
   const ssrImport = async (dep: string) => {
     if (server._pendingReload) {
       // Wait for "server._ssrExternals" to be updated
@@ -182,17 +178,19 @@ async function instantiateModule(
       return nodeRequire(dep, filename, resolveOptions, server)
     }
     if (!isCircular(dep) && !context.imports.get(dep)?.some(isCircular)) {
-      imports.push(dep)
-      if (imports.length === 1) {
+      // Since dynamic imports can happen in parallel, we need to
+      // account for multiple pending deps and duplicate imports.
+      const imports = context.imports.get(url) || []
+      if (!imports.length) {
         context.imports.set(url, imports)
       }
+      imports.push(dep)
       try {
         return await ssrLoadModule(dep, server, nodeGlobal, urlStack, context)
       } finally {
-        if (imports.length === 1) {
+        imports.splice(imports.indexOf(dep), 1)
+        if (!imports.length) {
           context.imports.delete(url)
-        } else {
-          imports.splice(imports.indexOf(dep), 1)
         }
       }
     }
