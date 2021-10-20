@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http'
 import getEtag from 'etag'
-import { SourceMap } from 'rollup'
+import { ExistingRawSourceMap } from 'rollup'
 
 const isDebug = process.env.DEBUG
 
@@ -18,7 +18,7 @@ export function send(
   type: string,
   etag = getEtag(content, { weak: true }),
   cacheControl = 'no-cache',
-  map?: SourceMap | null
+  map?: ExistingRawSourceMap | null
 ): void {
   if (req.headers['if-none-match'] === etag) {
     res.statusCode = 304
@@ -44,11 +44,8 @@ export function send(
   return res.end(content)
 }
 
-function genSourceMapString(map: SourceMap | string | undefined) {
-  if (typeof map !== 'string') {
-    map = JSON.stringify(map)
-  }
+function genSourceMapString(map: ExistingRawSourceMap) {
   return `\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(
-    map
+    JSON.stringify(map)
   ).toString('base64')}`
 }

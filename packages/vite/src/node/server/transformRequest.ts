@@ -2,7 +2,7 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import getEtag from 'etag'
 import * as convertSourceMap from 'convert-source-map'
-import { SourceDescription, SourceMap } from 'rollup'
+import { ExistingRawSourceMap, SourceDescription, SourceMap } from 'rollup'
 import { ViteDevServer } from '..'
 import chalk from 'chalk'
 import {
@@ -27,7 +27,7 @@ const isDebug = !!process.env.DEBUG
 
 export interface TransformResult {
   code: string
-  map: SourceMap | null
+  map: ExistingRawSourceMap | null
   etag?: string
   deps?: string[]
   dynamicDeps?: string[]
@@ -73,7 +73,7 @@ async function doTransform(
   const module = await server.moduleGraph.getModuleByUrl(url)
 
   // check if we have a fresh cache
-  const cached =
+  let cached =
     module && (ssr ? module.ssrTransformResult : module.transformResult)
   if (cached) {
     // TODO: check if the module is "partially invalidated" - i.e. an import
@@ -178,25 +178,25 @@ async function doTransform(
     map = transformResult.map
   }
 
-  if (map && mod.file) {
-    map = (typeof map === 'string' ? JSON.parse(map) : map) as SourceMap
-    if (map.mappings && !map.sourcesContent) {
-      await injectSourcesContent(map, mod.file, logger)
-    }
+  if (typeof map === 'string') {
+    map = JSON.parse(map) as SourceMap
+  }
+  // Coerce undefined and empty sourcemap into null.
+  if (!(map && 'sources' in map)) {
+    map = null
   }
 
-  if (ssr) {
-    return (mod.ssrTransformResult = await ssrTransform(
-      code,
-      map as SourceMap,
-      url,
-      config.isProduction
-    ))
-  } else {
-    return (mod.transformResult = {
-      code,
-      map,
-      etag: getEtag(code, { weak: true })
-    } as TransformResult)
+  cached = ssr
+    ? (mod.ssrTransformResult = await ssrTransform(code, map, url))
+    : (mod.transformResult = {
+        code,
+        map,
+        etag: getEtag(code, { weak: true })
+      })
+
+  if (map) {
+    await injectSourcesContent(map, mod.file, logger, moduleGraph)
   }
+
+  return cached
 }

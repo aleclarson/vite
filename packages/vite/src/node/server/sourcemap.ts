@@ -17,17 +17,19 @@ interface SourceMapLike {
 
 export async function injectSourcesContent(
   map: SourceMapLike,
-  file: string,
+  file: string | null,
   logger: Logger,
   moduleGraph?: ModuleGraph
 ): Promise<void> {
   let sourceRoot: string | undefined
-  try {
-    // The source root is undefined for virtual modules and permission errors.
-    sourceRoot = await fs.realpath(
-      path.resolve(path.dirname(file), map.sourceRoot || '')
-    )
-  } catch {}
+  if (file) {
+    try {
+      // The source root is undefined for virtual modules and permission errors.
+      sourceRoot = await fs.realpath(
+        path.resolve(path.dirname(file), map.sourceRoot || '')
+      )
+    } catch {}
+  }
 
   const needsContent = !map.sourcesContent
   if (needsContent) {

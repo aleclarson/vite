@@ -1,7 +1,7 @@
 import { removeMapFileComments } from 'convert-source-map'
 import MagicString from 'magic-string'
 import path from 'path'
-import { SourceMap } from 'rollup'
+import { ExistingRawSourceMap, SourceMap } from 'rollup'
 import { TransformResult } from '../server/transformRequest'
 import { parser } from '../server/pluginContainer'
 import {
@@ -28,10 +28,9 @@ export const ssrImportMetaKey = `__vite_ssr_import_meta__`
 
 export async function ssrTransform(
   code: string,
-  inMap: SourceMap | null,
-  url: string,
-  isProduction: boolean
-): Promise<TransformResult | null> {
+  inMap: ExistingRawSourceMap | null,
+  url: string
+): Promise<TransformResult> {
   const s = new MagicString(removeMapFileComments(code))
 
   const ast = parser.parse(code, {
