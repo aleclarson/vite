@@ -47,8 +47,7 @@ import {
 import { PackageData, resolvePackageData } from '../plugins/resolve'
 import { TransformOptions as EsbuildTransformOptions } from 'esbuild'
 import { DepOptimizationMetadata, optimizeDeps } from '../optimizer'
-import { ssrLoadModule } from '../ssr/ssrModuleLoader'
-import { resolveSSRExternal } from '../ssr/ssrExternal'
+import { SSRContext, ssrLoadModule } from '../ssr/ssrModuleLoader'
 import { createMissingImporterRegisterFn } from '../optimizer/registerMissing'
 import { resolveHostname } from '../utils'
 import { searchForWorkspaceRoot } from './searchRoot'
@@ -276,8 +275,11 @@ export interface ViteDevServer {
   /**
    * Load a given URL as an instantiated module for SSR.
    */
-  ssrLoadModule(url: string): Promise<Record<string, any>>
-  ssrLoadModule(urls: string[]): Promise<Record<string, any>[]>
+  ssrLoadModule(url: string, context?: SSRContext): Promise<Record<string, any>>
+  ssrLoadModule(
+    urls: string[],
+    context?: SSRContext
+  ): Promise<Record<string, any>[]>
   /**
    * Start the server.
    */
@@ -402,14 +404,8 @@ export async function createServer(
       return transformRequest(url, server, options)
     },
     transformIndexHtml: null!, // to be immediately set
-    ssrLoadModule(url) {
-      server._ssrExternals ||= resolveSSRExternal(
-        config,
-        server._optimizeDepsMetadata
-          ? Object.keys(server._optimizeDepsMetadata.optimized)
-          : []
-      )
-      return ssrLoadModule(url as string[], server)
+    ssrLoadModule(url, context) {
+      return ssrLoadModule(url as string[], server, context)
     },
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)

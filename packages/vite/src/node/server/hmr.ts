@@ -226,7 +226,7 @@ function propagateUpdate(
 
     // additionally check for CSS importers, since a PostCSS plugin like
     // Tailwind JIT may register any file as a dependency to a CSS file.
-    for (const importer of node.importers) {
+    for (const importer of node.staticImporters) {
       if (isCSSRequest(importer.url) && !currentChain.includes(importer)) {
         propagateUpdate(importer, boundaries, currentChain.concat(importer))
       }
@@ -235,7 +235,7 @@ function propagateUpdate(
     return false
   }
 
-  if (!node.importers.size) {
+  if (!node.staticImporters.size) {
     return true
   }
 
@@ -244,12 +244,12 @@ function propagateUpdate(
   // PostCSS plugins) it should be considered a dead end and force full reload.
   if (
     !isCSSRequest(node.url) &&
-    [...node.importers].every((i) => isCSSRequest(i.url))
+    [...node.staticImporters].every((i) => isCSSRequest(i.url))
   ) {
     return true
   }
 
-  for (const importer of node.importers) {
+  for (const importer of node.staticImporters) {
     const subChain = currentChain.concat(importer)
     if (importer.acceptedHmrDeps.has(node)) {
       boundaries.add({
@@ -278,9 +278,8 @@ function invalidate(mod: ModuleNode, timestamp: number, seen: Set<ModuleNode>) {
   seen.add(mod)
   mod.lastHMRTimestamp = timestamp
   mod.transformResult = null
-  mod.ssrModule = null
   mod.ssrTransformResult = null
-  mod.importers.forEach((importer) => {
+  mod.staticImporters.forEach((importer) => {
     if (!importer.acceptedHmrDeps.has(mod)) {
       invalidate(importer, timestamp, seen)
     }

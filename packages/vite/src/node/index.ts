@@ -4,6 +4,7 @@ export { preview } from './preview'
 export { build } from './build'
 export { optimizeDeps } from './optimizer'
 export { send } from './server/send'
+export { ssrCreateContext } from './ssr/ssrModuleLoader'
 export { createLogger, printHttpServerUrls } from './logger'
 export { transformWithEsbuild } from './plugins/esbuild'
 export { resolvePackageData, resolvePackageEntry } from './plugins/resolve'
@@ -73,6 +74,7 @@ export type {
   TransformResult
 } from './server/transformRequest'
 export type { HmrOptions, HmrContext } from './server/hmr'
+export type { SSRContext } from './ssr/ssrModuleLoader'
 export type {
   HMRPayload,
   ConnectedPayload,

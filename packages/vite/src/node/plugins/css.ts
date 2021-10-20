@@ -229,9 +229,6 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
             moduleGraph.updateModuleInfo(
               thisModule,
               depModules,
-              // The root CSS proxy module is self-accepting and should not
-              // have an explicit accept list
-              new Set(),
               isSelfAccepting
             )
             for (const file of deps) {

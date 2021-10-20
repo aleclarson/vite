@@ -521,8 +521,9 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         const prunedImports = await moduleGraph.updateModuleInfo(
           importerModule,
           importedUrls,
+          isSelfAccepting,
           normalizedAcceptedUrls,
-          isSelfAccepting
+          staticImportedUrls
         )
         if (hasHMR && prunedImports) {
           handlePrunedModules(prunedImports, server)

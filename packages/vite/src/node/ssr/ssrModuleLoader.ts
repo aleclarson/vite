@@ -13,138 +13,222 @@ import {
   ssrDynamicImportKey
 } from './ssrTransform'
 import { transformRequest, TransformResult } from '../server/transformRequest'
-import { injectSourcesContent } from '../server/sourcemap'
 import {
   InternalResolveOptions,
   loadPackageData,
   tryNodeResolve
 } from '../plugins/resolve'
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
-import { createSSRExternalsFilter } from './ssrExternal'
+import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
+import { ModuleNode } from '../server/moduleGraph'
 
 type SSRModule = Record<string, any>
-
-interface ModuleContext {
-  /** Pending transform requests by their URL */
-  pendingTransforms: Map<string, Promise<TransformResult>>
-  /** Pending modules by their URL */
-  pendingModules: Map<string, Promise<SSRModule>>
-  /** Loaded modules by their URL */
-  modules: Map<string, SSRModule>
-  /** Unresolved imports by importer URL */
-  imports: Map<string, string[]>
-  /** Returns true if a module should be loaded with Node require */
-  isExternal: (dep: string) => boolean
+type SSRModuleNode = ModuleNode & {
+  ssrTransformResult: TransformResult & { deps: string[] }
 }
+
+/**
+ * This context ensures a module is never loaded twice.
+ *
+ * The `resolvedModules` cache holds the promise for each module before
+ * they have been fully executed, allowing for circular imports.
+ *
+ * The `executedModules` cache allows `ssrImport` to wait for a dependency
+ * to load transitive dependencies and define exports before the importer
+ * can use it.
+ */
+export interface SSRContext {
+  /** Promises for loading entry modules and dynamic imports */
+  loadingEntries: Set<Promise<any>>
+  /** Promise cache for `resolveModule` calls */
+  resolvedModules: Map<string, Promise<SSRModule>>
+  /** Promise cache for `executeModule` calls */
+  executedModules: Map<string, Promise<SSRModule>>
+  /** For mapping SSR modules to their metadata */
+  moduleNodes: WeakMap<SSRModule, SSRModuleNode>
+  /** Returns true if a module should be executed w/o preprocessing */
+  isExternal: (url: string) => boolean
+  /** Force a module and its importers to reload */
+  reload: (url: string) => Promise<void>
+}
+
+export const ssrCreateContext = (server: ViteDevServer): SSRContext => ({
+  loadingEntries: new Set(),
+  resolvedModules: new Map(),
+  executedModules: new Map(),
+  moduleNodes: new WeakMap(),
+  isExternal: createSSRExternalsFilter(
+    (server._ssrExternals ||= resolveSSRExternal(
+      server.config,
+      server._optimizeDepsMetadata
+        ? Object.keys(server._optimizeDepsMetadata.optimized)
+        : []
+    )),
+    server.config.ssr?.noExternal
+  ),
+  async reload(url: string) {
+    const invalidated = new Set<string>()
+    const invalidate = (mod: ModuleNode): boolean => {
+      const url = mod.url
+      if (invalidated.has(url)) {
+        return true
+      }
+      if (this.resolvedModules.delete(url)) {
+        this.executedModules.delete(url)
+        invalidated.add(url)
+
+        // Reload any importers.
+        const isEntry = !Array.from(mod.staticImporters, invalidate).some(
+          Boolean
+        )
+
+        // Reload this module if not imported by any
+        // module used in the current SSR context.
+        if (isEntry) {
+          ssrLoadModule(url, server, this)
+        }
+
+        return true
+      }
+      return false
+    }
+
+    // Wait for previous execution to finish.
+    // By waiting, we avoid a race condition where a circular import is
+    // performed after its dependency is invalidated, but before it's been
+    // resolved, leading to an undefined module being returned.
+    await Promise.all(this.loadingEntries)
+
+    // Invalidate pathname or filename.
+    const mod = await server.moduleGraph.getModuleByUrl(url)
+    if (mod) {
+      invalidate(mod)
+    } else {
+      server.moduleGraph.getModulesByFile(url)?.forEach(invalidate)
+    }
+
+    // Wait for reloading to finish.
+    await Promise.all(this.loadingEntries)
+  }
+})
 
 export async function ssrLoadModule(
   url: string,
   server: ViteDevServer,
-  nodeGlobal?: NodeJS.Global,
-  urlStack?: string[],
-  context?: ModuleContext
+  context?: SSRContext,
+  urlStack?: string[]
 ): Promise<SSRModule>
 
 export async function ssrLoadModule(
   urls: string[],
   server: ViteDevServer,
-  nodeGlobal?: NodeJS.Global,
-  urlStack?: string[],
-  context?: ModuleContext
+  context?: SSRContext,
+  urlStack?: string[]
 ): Promise<SSRModule[]>
 
 export async function ssrLoadModule(
   url: string | string[],
   server: ViteDevServer,
-  nodeGlobal: NodeJS.Global = global,
-  urlStack: string[] = [],
-  context?: ModuleContext
+  context = ssrCreateContext(server),
+  urlStack: string[] = []
 ): Promise<SSRModule | SSRModule[]> {
   if (server.closed) {
     throw Error('Server is closed')
   }
-  context ??= {
-    pendingTransforms: new Map(),
-    pendingModules: new Map(),
-    modules: new Map(),
-    imports: new Map(),
-    isExternal: createSSRExternalsFilter(
-      server._ssrExternals!,
-      server.config.ssr?.noExternal
-    )
-  }
   if (Array.isArray(url)) {
     // Load multiple entries in parallel.
     return Promise.all(
-      url.map((url) =>
-        ssrLoadModule(url, server, nodeGlobal, urlStack, context)
-      )
+      url.map((url) => ssrLoadModule(url, server, context, urlStack))
     )
   }
   url = unwrapId(url)
-  let modulePromise = context.pendingModules.get(url)
-  if (!modulePromise) {
-    modulePromise = instantiateModule(
+  let executing = context.executedModules.get(url)
+  if (!executing) {
+    const importer = urlStack[urlStack.length - 1]
+
+    let resolving = context.resolvedModules.get(url)
+    if (!resolving) {
+      resolving = resolveModule(url, server, context, importer)
+      context.resolvedModules.set(url, resolving)
+    }
+
+    context.executedModules.set(
       url,
-      server,
-      nodeGlobal,
-      urlStack,
-      context
+      (executing = resolving.then((ssrModule) =>
+        executeModule(ssrModule, server, context, urlStack)
+      ))
     )
-    context.pendingModules.set(url, modulePromise)
-    modulePromise.catch((e) => {
+    executing.catch((e) => {
       if (!e.originalStack) {
         try {
           ssrRewriteStacktrace(e, server.moduleGraph)
         } catch {}
       }
     })
+
+    if (!importer) {
+      const entryPromise = executing.catch(() => {})
+      context.loadingEntries.add(entryPromise)
+      entryPromise.then(() => {
+        context.loadingEntries.delete(entryPromise)
+      })
+    }
   }
-  return modulePromise
+  return executing
 }
 
-async function instantiateModule(
+function onFailedImport(error: any, url: string, importer?: string): never {
+  // First error is thrown by `resolvePackageEntry` in vite:resolve
+  // and the other is thrown by `resolveExports` in same plugin.
+  if (/^(Failed to resolve|Missing "[^"]+" export)/.test(error.message)) {
+    // Mimic an error from Node's native dynamic import.
+    error.code = 'ERR_MODULE_NOT_FOUND'
+    error.message = `Cannot find module '${url}'`
+    if (importer) {
+      error.message += ` imported from ${importer}`
+    }
+  }
+  throw error
+}
+
+async function resolveModule(
   url: string,
   server: ViteDevServer,
-  nodeGlobal: NodeJS.Global,
-  urlStack: string[],
-  context: ModuleContext
+  context: SSRContext,
+  importer?: string
 ): Promise<SSRModule> {
-  const { moduleGraph } = server
-  const mod = await moduleGraph.ensureEntryFromUrl(url)
-
-  if (mod.ssrModule) {
-    return mod.ssrModule
+  let mod: ModuleNode
+  try {
+    mod = await server.moduleGraph.ensureEntryFromUrl(url)
+  } catch (e) {
+    // Failed to resolve the module URL.
+    onFailedImport(e, url, importer)
   }
 
-  const ssrModule = {
-    [Symbol.toStringTag]: 'Module'
+  // Throw a resolution error if skipped by every load hook.
+  const transformed = await transformRequest(url, server, { ssr: true })
+  if (!transformed) {
+    onFailedImport(new Error('Failed to resolve'), url, importer)
   }
+
+  const ssrModule: SSRModule = { [Symbol.toStringTag]: 'Module' }
   Object.defineProperty(ssrModule, '__esModule', { value: true })
+  context.moduleNodes.set(ssrModule, mod as SSRModuleNode)
+  return ssrModule
+}
 
-  // Tolerate circular imports by ensuring the module can be
-  // referenced before it's been instantiated.
-  context.modules.set(url, ssrModule)
-
-  const { code, map, deps } =
-    mod.ssrTransformResult ||
-    (await (context.pendingTransforms.get(url) ||
-      ssrTransformRequest(url, undefined, server, context)))
-
-  // Transform dependencies eagerly to reduce load times, but don't
-  // wait for them to finish, since ssrImport will do that.
-  deps!.forEach((dep) => {
-    if (dep[0] === '/' || !context.isExternal(dep)) {
-      ssrTransformRequest(dep, url, server, context)
-    }
-  })
-
-  urlStack = urlStack.concat(url)
-  const isCircular = (url: string) => urlStack.includes(url)
+async function executeModule(
+  ssrModule: SSRModule,
+  server: ViteDevServer,
+  context: SSRContext,
+  urlStack: string[]
+): Promise<SSRModule> {
+  // This is named "importer" to make ssrImport easier to read.
+  const importer = context.moduleNodes.get(ssrModule)!
+  urlStack = urlStack.concat(importer.url)
 
   const {
     isProduction,
-    logger,
     resolve: { dedupe },
     root
   } = server.config
@@ -164,12 +248,12 @@ async function instantiateModule(
 
   // Always resolve peerDependencies from the project root.
   // Otherwise, linked packages may use their version from devDependencies.
-  const filename = mod.file
+  const filename = importer.file
   if (filename) {
     resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
   }
 
-  const ssrImport = async (dep: string) => {
+  async function ssrImport(dep: string, importChain = urlStack) {
     if (server._pendingReload) {
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
@@ -177,24 +261,17 @@ async function instantiateModule(
     if (dep[0] !== '/' && context.isExternal(dep)) {
       return nodeRequire(dep, filename, resolveOptions, server)
     }
-    if (!isCircular(dep) && !context.imports.get(dep)?.some(isCircular)) {
-      // Since dynamic imports can happen in parallel, we need to
-      // account for multiple pending deps and duplicate imports.
-      const imports = context.imports.get(url) || []
-      if (!imports.length) {
-        context.imports.set(url, imports)
-      }
-      imports.push(dep)
-      try {
-        return await ssrLoadModule(dep, server, nodeGlobal, urlStack, context)
-      } finally {
-        imports.splice(imports.indexOf(dep), 1)
-        if (!imports.length) {
-          context.imports.delete(url)
-        }
-      }
+    // Circular imports resolve with an incomplete module, so
+    // imported values cannot be used in top-level statements.
+    if (importChain.includes(dep)) {
+      return context.resolvedModules.get(dep)
     }
-    return context.modules.get(dep)
+    return ssrLoadModule(dep, server, context, importChain)
+  }
+
+  async function ssrDynamicImport(url: string) {
+    const [dep] = await server.moduleGraph.resolveUrl(url)
+    return ssrImport(dep, [])
   }
 
   function ssrExportAll(sourceModule: any) {
@@ -211,67 +288,31 @@ async function instantiateModule(
     }
   }
 
-  const ssrImportMeta = { url }
+  const ssrImportMeta = { url: importer.url }
   const ssrArguments: Record<string, any> = {
-    global: nodeGlobal,
     [ssrModuleExportsKey]: ssrModule,
     [ssrImportMetaKey]: ssrImportMeta,
     [ssrImportKey]: ssrImport,
-    [ssrDynamicImportKey]: ssrImport,
+    [ssrDynamicImportKey]: ssrDynamicImport,
     [ssrExportAllKey]: ssrExportAll
   }
 
-  let ssrModuleImpl =
-    `(0,async function(${Object.keys(ssrArguments)}){\n` + code + `\n})`
-
+  let { code, map } = importer.ssrTransformResult
+  code = `(0,async function(${Object.keys(ssrArguments)}){\n` + code + `\n})`
   if (map?.mappings) {
-    if (filename) {
-      map.file = filename
-      await injectSourcesContent(map, filename, logger, moduleGraph)
-    }
-
-    ssrModuleImpl += `\n` + convertSourceMap.fromObject(map).toComment()
+    code += `\n` + convertSourceMap.fromObject(map).toComment()
   }
 
-  const ssrModuleInit = vm.runInThisContext(ssrModuleImpl, {
-    filename: filename || mod.url,
+  // Using `vm.runInThisContext` is non-negotiable, because SSR externals
+  // are loaded within this context, so we must ensure global built-ins
+  // are identical to avoid type-checking bugs.
+  const initialize = vm.runInThisContext(code, {
+    filename: filename || importer.url,
     displayErrors: false
   })
 
-  await ssrModuleInit(...Object.values(ssrArguments))
-
-  mod.ssrModule = Object.freeze(ssrModule)
-  return ssrModule
-}
-
-async function ssrTransformRequest(
-  url: string,
-  importer: string | undefined,
-  server: ViteDevServer,
-  context: ModuleContext
-) {
-  let request = context.pendingTransforms.get(url)
-  if (!request) {
-    context.pendingTransforms.set(
-      url,
-      (request = transformRequest(url, server, { ssr: true }).then((result) => {
-        if (result === null) {
-          // Mimic an error from failed dynamic import.
-          const err: any = new Error(`Cannot find module '${url}'`)
-          if (importer) {
-            err.message += ` imported from ${importer}`
-          }
-          err.code = 'ERR_MODULE_NOT_FOUND'
-          throw err
-        }
-        context.pendingTransforms.delete(url)
-        return result
-      }))
-    )
-    // Ignore unhandled rejection until the module is imported.
-    request.catch(() => {})
-  }
-  return request
+  await initialize(...Object.values(ssrArguments))
+  return Object.freeze(ssrModule)
 }
 
 function nodeRequire(

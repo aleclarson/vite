@@ -24,28 +24,19 @@ export class ModuleNode {
   type: 'js' | 'css'
   info?: ModuleInfo
   meta?: Record<string, any>
-  importers = new Set<ModuleNode>()
+  staticImporters = new Set<ModuleNode>()
+  dynamicImporters = new Set<ModuleNode>()
   importedModules = new Set<ModuleNode>()
   acceptedHmrDeps = new Set<ModuleNode>()
   isSelfAccepting = false
   transformResult: TransformResult | null = null
   ssrTransformResult: TransformResult | null = null
-  ssrModule: Record<string, any> | null = null
   lastHMRTimestamp = 0
 
   constructor(url: string) {
     this.url = url
     this.type = isDirectCSSRequest(url) ? 'css' : 'js'
   }
-}
-
-function invalidateSSRModule(mod: ModuleNode, seen: Set<ModuleNode>) {
-  if (seen.has(mod)) {
-    return
-  }
-  seen.add(mod)
-  mod.ssrModule = null
-  mod.importers.forEach((importer) => invalidateSSRModule(importer, seen))
 }
 
 export type ResolvedUrl = [
@@ -92,7 +83,6 @@ export class ModuleGraph {
     mod.info = undefined
     mod.transformResult = null
     mod.ssrTransformResult = null
-    invalidateSSRModule(mod, seen)
   }
 
   invalidateAll(): void {
@@ -110,8 +100,9 @@ export class ModuleGraph {
   async updateModuleInfo(
     mod: ModuleNode,
     importedModules: Set<string | ModuleNode>,
-    acceptedModules: Set<string | ModuleNode>,
-    isSelfAccepting: boolean
+    isSelfAccepting: boolean,
+    acceptedModules?: Set<string>,
+    staticImportedModules?: Set<string>
   ): Promise<Set<ModuleNode> | undefined> {
     mod.isSelfAccepting = isSelfAccepting
     const prevImports = mod.importedModules
@@ -123,14 +114,19 @@ export class ModuleGraph {
         typeof imported === 'string'
           ? await this.ensureEntryFromUrl(imported)
           : imported
-      dep.importers.add(mod)
+      if (!staticImportedModules || staticImportedModules.has(dep.url)) {
+        dep.staticImporters.add(mod)
+      } else {
+        dep.dynamicImporters.add(mod)
+      }
       nextImports.add(dep)
     }
     // remove the importer from deps that were imported but no longer are.
     prevImports.forEach((dep) => {
       if (!nextImports.has(dep)) {
-        dep.importers.delete(mod)
-        if (!dep.importers.size) {
+        dep.staticImporters.delete(mod)
+        dep.dynamicImporters.delete(mod)
+        if (!dep.staticImporters.size && !dep.dynamicImporters.size) {
           // dependency no longer imported
           ;(noLongerImported || (noLongerImported = new Set())).add(dep)
         }
@@ -138,13 +134,14 @@ export class ModuleGraph {
     })
     // update accepted hmr deps
     const deps = (mod.acceptedHmrDeps = new Set())
-    for (const accepted of acceptedModules) {
-      const dep =
-        typeof accepted === 'string'
-          ? await this.ensureEntryFromUrl(accepted)
-          : accepted
-      deps.add(dep)
-    }
+    if (acceptedModules)
+      for (const accepted of acceptedModules) {
+        const dep =
+          typeof accepted === 'string'
+            ? await this.ensureEntryFromUrl(accepted)
+            : accepted
+        deps.add(dep)
+      }
     return noLongerImported
   }
 
