@@ -235,21 +235,19 @@ function propagateUpdate(
     return false
   }
 
-  if (!node.staticImporters.size) {
+  const importers = [...node.staticImporters, ...node.dynamicImporters]
+  if (!importers.length) {
     return true
   }
 
   // #3716, #3913
   // For a non-CSS file, if all of its importers are CSS files (registered via
   // PostCSS plugins) it should be considered a dead end and force full reload.
-  if (
-    !isCSSRequest(node.url) &&
-    [...node.staticImporters].every((i) => isCSSRequest(i.url))
-  ) {
+  if (!isCSSRequest(node.url) && importers.every((i) => isCSSRequest(i.url))) {
     return true
   }
 
-  for (const importer of node.staticImporters) {
+  for (const importer of importers) {
     const subChain = currentChain.concat(importer)
     if (importer.acceptedHmrDeps.has(node)) {
       boundaries.add({
