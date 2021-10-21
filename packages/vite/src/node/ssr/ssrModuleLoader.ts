@@ -28,8 +28,8 @@ interface SSRModule {
   url: string
   file: string | null
   exports: SSRModuleExports
-  transformResult: TransformResult
-  staticImporters: string[]
+  transformResult: Readonly<TransformResult>
+  staticImporters: readonly string[]
 }
 
 /**
@@ -44,6 +44,7 @@ interface SSRModule {
  * can use it.
  */
 export interface SSRContext {
+  plugins: readonly SSRPlugin[]
   /** Promises for loading entry modules and dynamic imports */
   loadingEntries: Set<Promise<any>>
   /** Promise cache for `resolveModule` calls */
@@ -52,11 +53,25 @@ export interface SSRContext {
   executedModules: Map<string, Promise<SSRModuleExports>>
   /** Returns true if a module should be executed w/o preprocessing */
   isExternal: (url: string) => boolean
-  /** Force a module and its importers to reload */
-  reload: (url: string) => Promise<void>
+  /** Force one or many modules and their importers to reload */
+  reload: (moduleIds: string | string[]) => Promise<void>
 }
 
-export const ssrCreateContext = (server: ViteDevServer): SSRContext => ({
+export interface SSRPlugin {
+  /**
+   * The given `module` is about to be executed.
+   *
+   * If a function is returned, it's called after the `module`
+   * has finished executing or failed while executing.
+   */
+  executeModule(module: Readonly<SSRModule>): ((error?: any) => void) | void
+}
+
+export const ssrCreateContext = (
+  server: ViteDevServer,
+  plugins: SSRPlugin[] = []
+): SSRContext => ({
+  plugins,
   loadingEntries: new Set(),
   resolvedModules: new Map(),
   executedModules: new Map(),
@@ -154,7 +169,7 @@ export async function ssrLoadModule(
 
     let resolving = context.resolvedModules.get(url)
     if (!resolving) {
-      resolving = resolveModule(url, server, context, importer)
+      resolving = resolveModule(url, server, importer)
       context.resolvedModules.set(url, resolving)
     }
 
@@ -200,7 +215,6 @@ function onFailedImport(error: any, url: string, importer?: string): never {
 async function resolveModule(
   url: string,
   server: ViteDevServer,
-  context: SSRContext,
   importer?: string
 ): Promise<SSRModule> {
   let mod: ModuleNode
@@ -314,6 +328,14 @@ async function executeModule(
     [ssrExportAllKey]: ssrExportAll
   }
 
+  const postHooks: ((error?: any) => void)[] = []
+  for (const plugin of context.plugins) {
+    const postHook = plugin.executeModule(importer)
+    if (postHook) {
+      postHooks.push(postHook)
+    }
+  }
+
   let { code, map } = importer.transformResult
   code = `(0,async function(${Object.keys(ssrArguments)}){\n` + code + `\n})`
   if (map?.mappings) {
@@ -328,7 +350,14 @@ async function executeModule(
     displayErrors: false
   })
 
-  await initialize(...Object.values(ssrArguments))
+  try {
+    await initialize(...Object.values(ssrArguments))
+    postHooks.forEach((postHook) => postHook())
+  } catch (e) {
+    postHooks.forEach((postHook) => postHook(e))
+    throw e
+  }
+
   return Object.freeze(importer.exports)
 }
 
