@@ -44,7 +44,9 @@ interface SSRModule {
  * can use it.
  */
 export interface SSRContext {
-  plugins: readonly SSRPlugin[]
+  plugins: SSRPlugin[]
+  /** This accumulates entry modules until `loadingEntries` is empty */
+  loadedEntries: Set<Promise<SSRModule>>
   /** Promises for loading entry modules and dynamic imports */
   loadingEntries: Set<Promise<any>>
   /** Promise cache for `resolveModule` calls */
@@ -64,7 +66,11 @@ export interface SSRPlugin {
    * If a function is returned, it's called after the `module`
    * has finished executing or failed while executing.
    */
-  executeModule(module: Readonly<SSRModule>): ((error?: any) => void) | void
+  executeModule?(module: Readonly<SSRModule>): ((error?: any) => void) | void
+  /**
+   * The given `entries` have finished loading.
+   */
+  loadedEntries?(entries: Readonly<SSRModule>[]): void
 }
 
 export const ssrCreateContext = (
@@ -72,6 +78,7 @@ export const ssrCreateContext = (
   plugins: SSRPlugin[] = []
 ): SSRContext => ({
   plugins,
+  loadedEntries: new Set(),
   loadingEntries: new Set(),
   resolvedModules: new Map(),
   executedModules: new Map(),
@@ -191,11 +198,26 @@ export async function ssrLoadModule(
       }
     })
 
+    // Track the promises for entry modules.
     if (!importer) {
       const entryPromise = executing.catch(() => {})
       context.loadingEntries.add(entryPromise)
-      entryPromise.then(() => {
+      entryPromise.then((exports) => {
         context.loadingEntries.delete(entryPromise)
+        if (exports) {
+          context.loadedEntries.add(resolving!)
+        }
+        // Any plugins with a `loadedEntries` hook defined will receive the
+        // array of entry modules that loaded without error, but only after
+        // all modules are finished executing.
+        if (!context.loadingEntries.size) {
+          Promise.all(context.loadedEntries).then((loadedEntries) => {
+            for (const plugin of context.plugins) {
+              plugin.loadedEntries?.(loadedEntries)
+            }
+          })
+          context.loadedEntries.clear()
+        }
       })
     }
   }
@@ -334,7 +356,7 @@ async function executeModule(
 
   const postHooks: ((error?: any) => void)[] = []
   for (const plugin of context.plugins) {
-    const postHook = plugin.executeModule(importer)
+    const postHook = plugin.executeModule?.(importer)
     if (postHook) {
       postHooks.push(postHook)
     }
