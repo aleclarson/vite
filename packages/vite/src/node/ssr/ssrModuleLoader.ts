@@ -84,7 +84,7 @@ export const ssrCreateContext = (
     )),
     server.config.ssr?.noExternal
   ),
-  async reload(url: string) {
+  async reload(moduleIds) {
     const invalidated = new Set<string>()
     const invalidate = async (url: string) => {
       if (invalidated.has(url)) {
@@ -118,15 +118,19 @@ export const ssrCreateContext = (
     // resolved, leading to an undefined module being returned.
     await Promise.all(this.loadingEntries)
 
-    // Invalidate pathname or filename.
-    const mod = await server.moduleGraph.getModuleByUrl(url)
-    await (mod
-      ? invalidate(mod.url)
-      : Promise.all(
-          Array.from(server.moduleGraph.getModulesByFile(url) || [], (mod) =>
-            invalidate(mod.url)
-          )
-        ))
+    await Promise.all<any>(
+      (Array.isArray(moduleIds) ? moduleIds : [moduleIds]).map(async (id) => {
+        // The given ID may be a file path or a dev URL.
+        const mod = await server.moduleGraph.getModuleByUrl(id)
+        return mod
+          ? invalidate(mod.url)
+          : Promise.all(
+              Array.from(server.moduleGraph.getModulesByFile(id) || [], (mod) =>
+                invalidate(mod.url)
+              )
+            )
+      })
+    )
 
     // Wait for reloading to finish.
     await Promise.all(this.loadingEntries)
