@@ -83,7 +83,7 @@ importers:
       create-vite: latest
       kolorist: ^1.5.0
     dependencies:
-      create-vite: link:../create-vite
+      create-vite: 2.6.6
       kolorist: 1.5.0
 
   packages/create-vite:
@@ -620,6 +620,12 @@ importers:
       '@rollup/pluginutils': 4.1.1
       '@vue/babel-plugin-jsx': 1.0.7_@babel+core@7.15.5
       hash-sum: 2.0.0
+
+  packages/temp:
+    specifiers:
+      css-color-names: ^1.0.1
+    devDependencies:
+      css-color-names: 1.0.1
 
   packages/vite:
     specifiers:
@@ -3475,6 +3481,16 @@ packages:
   /create-require/1.1.1:
     resolution: {integrity: sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==}
     dev: true
+
+  /create-vite/2.6.6:
+    resolution: {integrity: sha512-vQSlQuFFEDG+NaLiVn7um94MU244F5P8C4a8NavG2j1QiUedQg1ptQbk+wdjQaRW7ZjOv3N6Kp++6hvhWXRj7g==}
+    engines: {node: '>=12.0.0'}
+    hasBin: true
+    dependencies:
+      kolorist: 1.5.0
+      minimist: 1.2.5
+      prompts: 2.4.1
+    dev: false
 
   /cross-env/7.0.3:
     resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
