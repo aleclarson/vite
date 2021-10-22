@@ -9,6 +9,7 @@ import {
 } from '../utils'
 import { ResolvedConfig, SSROptions } from '..'
 import { createFilter } from '@rollup/pluginutils'
+import { PackageCache } from '../packages'
 
 const debug = createDebugger('vite:ssr-external')
 
@@ -34,7 +35,7 @@ export function resolveSSRExternal(
     seen.add(id)
   })
 
-  collectExternals(config.root, ssrExternals, seen)
+  collectExternals(config.root, config.packageCache, ssrExternals, seen)
 
   for (const dep of knownImports) {
     // assume external if not yet seen
@@ -56,6 +57,7 @@ export function resolveSSRExternal(
 
 function collectExternals(
   root: string,
+  packageCache: PackageCache,
   ssrExternals: Set<string>,
   seen: Set<string>
 ) {
@@ -72,6 +74,7 @@ function collectExternals(
 
   const resolveOptions: InternalResolveOptions = {
     root,
+    packageCache,
     preserveSymlinks: true,
     isProduction: false,
     isBuild: true
@@ -136,7 +139,7 @@ function collectExternals(
   }
 
   for (const depRoot of depsToTrace) {
-    collectExternals(depRoot, ssrExternals, seen)
+    collectExternals(depRoot, packageCache, ssrExternals, seen)
   }
 }
 
