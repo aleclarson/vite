@@ -270,7 +270,7 @@ export interface ViteDevServer {
    * of code where the error occurred is inserted into the error
    * message.
    */
-  ssrRewriteStacktrace(error: any): void
+  ssrRewriteStacktrace(error: any, filter?: (source: string) => boolean): void
   /**
    * Load a given URL as an instantiated module for SSR.
    */
@@ -382,10 +382,10 @@ export async function createServer(
       return transformRequest(url, server, options)
     },
     transformIndexHtml: null!, // to be immediately set
-    ssrRewriteStacktrace(error) {
+    ssrRewriteStacktrace(error, filter) {
       if (!error.originalStack) {
         try {
-          ssrRewriteStacktrace(error, moduleGraph)
+          ssrRewriteStacktrace(error, moduleGraph, filter)
         } catch {}
       }
     },

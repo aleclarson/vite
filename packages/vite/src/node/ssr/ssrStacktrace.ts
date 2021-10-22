@@ -8,7 +8,8 @@ const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
 export function ssrRewriteStacktrace(
   error: Error & { code?: unknown; errors?: any[]; originalStack?: string },
-  moduleGraph: ModuleGraph
+  moduleGraph: ModuleGraph,
+  filter?: (source: string) => boolean
 ): void {
   if (error.code == 'MODULE_NOT_FOUND') return
   if (error.originalStack) return
@@ -60,6 +61,7 @@ export function ssrRewriteStacktrace(
   let code!: string
   let location: SourceLocation | undefined
 
+  const removedFrames: number[] = []
   const stackFrames = stack.split('\n').map((line, i) =>
     line.replace(stackFrameRE, (input, varName, url, line, column) => {
       if (!url) return input
@@ -96,6 +98,9 @@ export function ssrRewriteStacktrace(
             column: Number(column)
           }
         }
+      } else if (filter?.(url) === false) {
+        removedFrames.push(i)
+        return input
       }
 
       if (rawSourceMap) {
@@ -109,6 +114,10 @@ export function ssrRewriteStacktrace(
       return input
     })
   )
+
+  removedFrames.reverse().forEach((i) => {
+    stackFrames.splice(i, 1)
+  })
 
   const message = location
     ? codeFrameColumns(code, location, {
