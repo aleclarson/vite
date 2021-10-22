@@ -71,7 +71,12 @@ export type {
   TransformResult
 } from './server/transformRequest'
 export type { HmrOptions, HmrContext } from './server/hmr'
-export type { SSRContext, SSRPlugin } from './ssr/ssrModuleLoader'
+export type {
+  SSRContext,
+  SSRPlugin,
+  SSRModule,
+  SSRModuleExports
+} from './ssr/ssrModuleLoader'
 export type {
   HMRPayload,
   ConnectedPayload,

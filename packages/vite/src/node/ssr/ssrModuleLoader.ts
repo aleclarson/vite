@@ -19,9 +19,9 @@ import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
 import { ModuleNode } from '../server/moduleGraph'
 import { loadPackageData } from '../packages'
 
-type SSRModuleExports = Record<string, any>
+export type SSRModuleExports = Record<string, any>
 
-interface SSRModule {
+export interface SSRModule {
   url: string
   file: string | null
   exports: SSRModuleExports
