@@ -39,25 +39,28 @@ export async function injectSourcesContent(
   const missingSources: string[] = []
   await Promise.all(
     map.sources.map(async (sourcePath, i) => {
-      if (sourcePath) {
-        const mod = moduleGraph?.urlToModuleMap.get(sourcePath)
-        if (mod?.file) {
-          sourcePath = mod.file
-        } else if (sourceRoot) {
-          sourcePath = path.resolve(sourceRoot, decodeURI(sourcePath))
-        }
-        if (moduleGraph) {
-          map.sources[i] = sourcePath
-        }
-        if (needsContent) {
-          try {
-            map.sourcesContent![i] = await fs.readFile(sourcePath, 'utf-8')
-          } catch {
-            missingSources.push(sourcePath)
-          }
+      if (!sourcePath) return
+
+      const source =
+        sourcePath[0] === '/'
+          ? moduleGraph?.urlToModuleMap.get(sourcePath)
+          : undefined
+
+      if (source) {
+        if (!source.file) return
+        sourcePath = source.file
+      } else if (sourceRoot) {
+        sourcePath = path.resolve(sourceRoot, decodeURI(sourcePath))
+      }
+
+      map.sources[i] = sourcePath
+      if (needsContent) {
+        try {
+          map.sourcesContent![i] = await fs.readFile(sourcePath, 'utf-8')
+        } catch {
+          missingSources.push(sourcePath)
         }
       }
-      return null
     })
   )
 

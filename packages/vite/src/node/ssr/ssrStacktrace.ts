@@ -7,18 +7,24 @@ import fs from 'fs'
 const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
 export function ssrRewriteStacktrace(
-  error: Error & { code?: unknown; errors?: any[] },
+  error: Error & { code?: unknown; errors?: any[]; originalStack?: string },
   moduleGraph: ModuleGraph
 ): void {
-  let code!: string
-  let location: SourceLocation | undefined
-  let stack = error.stack!
+  if (error.code == 'MODULE_NOT_FOUND') return
+  if (error.originalStack) return
 
-  if (error.code == 'MODULE_NOT_FOUND') {
-    return
+  let stack = error.stack!
+  Object.defineProperty(error, 'originalStack', {
+    value: stack,
+    configurable: true
+  })
+
+  let errorType = error.constructor.name
+  if (!stack.startsWith(errorType)) {
+    errorType = stack.slice(0, stack.indexOf(':'))
   }
 
-  const header = error.constructor.name + ': ' + error.message + '\n'
+  const header = errorType + ': ' + error.message + '\n'
   const headerIndex = stack.indexOf(header)
 
   let syntaxFrame: string | undefined
@@ -41,8 +47,7 @@ export function ssrRewriteStacktrace(
   // Strip the error message.
   stack = stack.slice(headerIndex + header.length)
 
-  // If something else comes after the error message,
-  // then we probably already processed this stack trace.
+  // Avoid mangling the stack trace if something goes wrong.
   if (!stackFrameRE.test(stack)) {
     return
   }
@@ -52,11 +57,17 @@ export function ssrRewriteStacktrace(
     stack = `    at ${syntaxFrame}\n${stack}`
   }
 
+  let code!: string
+  let location: SourceLocation | undefined
+
   const stackFrames = stack.split('\n').map((line, i) =>
     line.replace(stackFrameRE, (input, varName, url, line, column) => {
       if (!url) return input
 
-      const mod = moduleGraph.urlToModuleMap.get(url)
+      const mod =
+        moduleGraph.urlToModuleMap.get(url) ||
+        moduleGraph.idToModuleMap.get(url)
+
       const rawSourceMap = mod?.ssrTransformResult?.map
 
       if (rawSourceMap) {
@@ -116,10 +127,6 @@ function rebindErrorStacktrace(
   stacktrace: string
 ): void {
   const stack = Object.getOwnPropertyDescriptor(e, 'stack')!
-  Object.defineProperty(e, 'originalStack', {
-    value: stack.value,
-    configurable: true
-  })
   if (stack.configurable) {
     Object.defineProperty(e, 'stack', {
       value: stacktrace,

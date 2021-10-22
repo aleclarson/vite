@@ -194,8 +194,8 @@ async function doTransform(
         etag: getEtag(code, { weak: true })
       })
 
-  if (map) {
-    await injectSourcesContent(map, mod.file, logger, moduleGraph)
+  if (cached.map) {
+    await injectSourcesContent(cached.map, mod.file, logger, moduleGraph)
   }
 
   return cached
