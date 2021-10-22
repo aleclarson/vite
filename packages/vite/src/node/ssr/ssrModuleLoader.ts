@@ -13,14 +13,11 @@ import {
   ssrDynamicImportKey
 } from './ssrTransform'
 import { transformRequest, TransformResult } from '../server/transformRequest'
-import {
-  InternalResolveOptions,
-  loadPackageData,
-  tryNodeResolve
-} from '../plugins/resolve'
+import { InternalResolveOptions, tryNodeResolve } from '../plugins/resolve'
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
 import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
 import { ModuleNode } from '../server/moduleGraph'
+import { loadPackageData } from '../packages'
 
 type SSRModuleExports = Record<string, any>
 
@@ -277,6 +274,7 @@ async function executeModule(
 ): Promise<SSRModuleExports> {
   const {
     isProduction,
+    packageCache,
     resolve: { dedupe },
     root
   } = server.config
@@ -291,6 +289,7 @@ async function executeModule(
     // Disable "module" condition.
     isRequire: true,
     mainFields: ['main'],
+    packageCache,
     root
   }
 
@@ -462,7 +461,11 @@ function dedupePeerDeps(file: string, options: InternalResolveOptions) {
   ) {
     const pkgPath = lookupFile(path.dirname(file), ['package.json'], true)
     if (pkgPath) {
-      const pkg = loadPackageData(pkgPath, options.preserveSymlinks).data
+      const pkg = loadPackageData(
+        pkgPath,
+        options.preserveSymlinks,
+        options.packageCache
+      ).data
       if (pkg.peerDependencies) {
         const dedupe = new Set(options.dedupe)
         const oldSize = dedupe.size
