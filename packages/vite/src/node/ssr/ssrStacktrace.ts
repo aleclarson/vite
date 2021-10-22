@@ -1,8 +1,10 @@
-import { codeFrameColumns, SourceLocation } from '@babel/code-frame'
-import { SourceMapConsumer, RawSourceMap } from 'source-map'
-import { ModuleGraph } from '../server/moduleGraph'
 import os from 'os'
 import fs from 'fs'
+import path from 'path'
+import { codeFrameColumns, SourceLocation } from '@babel/code-frame'
+import { SourceMapConsumer, RawSourceMap } from 'source-map'
+import * as convertSourceMap from 'convert-source-map'
+import { ModuleGraph } from '../server/moduleGraph'
 
 const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
@@ -58,7 +60,7 @@ export function ssrRewriteStacktrace(
     stack = `    at ${syntaxFrame}\n${stack}`
   }
 
-  let code!: string
+  let failedScript!: string
   let location: SourceLocation | undefined
 
   const removedFrames: number[] = []
@@ -66,17 +68,32 @@ export function ssrRewriteStacktrace(
     line.replace(stackFrameRE, (input, varName, url, line, column) => {
       if (!url) return input
 
+      // Grab the source map from Vite's module graph.
       const mod =
         moduleGraph.urlToModuleMap.get(url) ||
         moduleGraph.idToModuleMap.get(url)
 
-      const rawSourceMap = mod?.ssrTransformResult?.map
+      let code: string | undefined
+      let filename = mod?.file
+      let rawSourceMap = mod?.ssrTransformResult?.map as
+        | RawSourceMap
+        | undefined
+
+      // If no module node exists, this source is likely a third-party module,
+      // so we need to load its source map from disk.
+      if (!mod) {
+        try {
+          code = fs.readFileSync(url, 'utf8')
+          filename = url
+          rawSourceMap = (
+            convertSourceMap.fromSource(code) ||
+            convertSourceMap.fromMapFileSource(code, path.dirname(url))
+          )?.toObject()
+        } catch {}
+      }
 
       if (rawSourceMap) {
-        const consumer = new SourceMapConsumer(
-          rawSourceMap as unknown as RawSourceMap
-        )
-
+        const consumer = new SourceMapConsumer(rawSourceMap)
         const pos = consumer.originalPositionFor({
           line: Number(line),
           column: Number(column),
@@ -90,8 +107,8 @@ export function ssrRewriteStacktrace(
         }
       }
 
-      if (i == 0 && mod?.file) {
-        code = fs.readFileSync(mod.file, 'utf8')
+      if (i == 0 && filename) {
+        failedScript = code || fs.readFileSync(filename, 'utf8')
         location = {
           start: {
             line: Number(line),
@@ -120,7 +137,7 @@ export function ssrRewriteStacktrace(
   })
 
   const message = location
-    ? codeFrameColumns(code, location, {
+    ? codeFrameColumns(failedScript, location, {
         highlightCode: true,
         // ESBuild errors have the raw message in the `errors` array.
         message: error.errors ? error.errors[0].text : error.message
