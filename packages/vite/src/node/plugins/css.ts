@@ -313,7 +313,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
       if (!inlined) {
         styles.set(id, css)
       } else {
-        css = await minify(css, config)
+        css = await minifyCSS(css, config)
       }
 
       return {
@@ -354,7 +354,10 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
       // minification if necessary
       const processChunkCSS = async (
         css: string,
-        options: {
+        {
+          inlined,
+          minify
+        }: {
           inlined: boolean
           minify: boolean
         }
@@ -364,7 +367,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         css = css.replace(assetUrlRE, (_, fileHash, postfix = '') => {
           const filename = getAssetFilename(fileHash, config) + postfix
           registerAssetToChunk(chunk, filename)
-          if (!isRelativeBase || options.inlined) {
+          if (!isRelativeBase || inlined) {
             // absolute base or relative base but inlined (injected as style tag into
             // index.html) use the base as-is
             return config.base + filename
@@ -378,8 +381,8 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         if (css.includes('@import')) {
           css = await hoistAtImports(css)
         }
-        if (options.minify && config.build.minify) {
-          css = await minify(css, config)
+        if (minify && config.build.minify) {
+          css = await minifyCSS(css, config)
         }
         return css
       }
@@ -495,7 +498,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         hasEmitted = true
         // minify css
         if (config.build.minify) {
-          extractedCss = await minify(extractedCss, config)
+          extractedCss = await minifyCSS(extractedCss, config)
         }
         this.emitFile({
           name: 'style.css',
@@ -900,26 +903,17 @@ async function doUrlReplace(
   return `url(${wrap}${await replacer(rawUrl)}${wrap})`
 }
 
-function minify(css: string, config: ResolvedConfig) {
-  return minifyCSS(css, config.build.target, (warnings) =>
-    config.logger.warn(
-      chalk.yellow(`warnings when minifying css:\n${warnings.join('\n')}`)
-    )
-  )
-}
-
-export async function minifyCSS(
-  css: string,
-  target?: string | string[] | false,
-  warn?: (warnings: string[]) => void
-) {
+async function minifyCSS(css: string, config: ResolvedConfig) {
   const { code, warnings } = await transform(css, {
     loader: 'css',
     minify: true,
-    target: target || undefined
+    target: config.build.target || undefined
   })
-  if (warn && warnings.length) {
-    warn(await formatMessages(warnings, { kind: 'warning' }))
+  if (warnings.length) {
+    const msgs = await formatMessages(warnings, { kind: 'warning' })
+    config.logger.warn(
+      chalk.yellow(`warnings when minifying css:\n${msgs.join('\n')}`)
+    )
   }
   return code
 }
