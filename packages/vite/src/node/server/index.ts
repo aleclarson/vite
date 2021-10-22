@@ -52,6 +52,7 @@ import { createMissingImporterRegisterFn } from '../optimizer/registerMissing'
 import { resolveHostname } from '../utils'
 import { searchForWorkspaceRoot } from './searchRoot'
 import { CLIENT_DIR } from '../constants'
+import { ssrRewriteStacktrace } from '../ssr/ssrStacktrace'
 
 export { searchForWorkspaceRoot } from './searchRoot'
 
@@ -273,6 +274,13 @@ export interface ViteDevServer {
     inMap?: object
   ): Promise<ESBuildTransformResult>
   /**
+   * Rewrite the given error's stack trace, tracing back any file
+   * references to their original source. If possible, the excerpt
+   * of code where the error occurred is inserted into the error
+   * message.
+   */
+  ssrRewriteStacktrace(error: any): void
+  /**
    * Load a given URL as an instantiated module for SSR.
    */
   ssrLoadModule(url: string, context?: SSRContext): Promise<Record<string, any>>
@@ -404,6 +412,13 @@ export async function createServer(
       return transformRequest(url, server, options)
     },
     transformIndexHtml: null!, // to be immediately set
+    ssrRewriteStacktrace(error) {
+      if (!error.originalStack) {
+        try {
+          ssrRewriteStacktrace(error, moduleGraph)
+        } catch {}
+      }
+    },
     ssrLoadModule(url, context) {
       return ssrLoadModule(url as string[], server, context)
     },
