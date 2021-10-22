@@ -104,6 +104,12 @@ export function ssrRewriteStacktrace(
           url = pos.source
           line = pos.line
           column = pos.column
+
+          const sourceRoot =
+            rawSourceMap.sourceRoot || (filename && path.dirname(filename))
+          if (sourceRoot) {
+            url = path.resolve(sourceRoot, url)
+          }
         }
       }
 
