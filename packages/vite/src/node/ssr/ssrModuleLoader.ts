@@ -108,7 +108,7 @@ export const ssrCreateContext = (
         // Reload this module if not imported by any
         // module used in the current SSR context.
         if (isEntry) {
-          ssrLoadModule(url, server, this)
+          await ssrLoadModule(url, server, this)
         }
 
         return true
