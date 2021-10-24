@@ -104,7 +104,7 @@ export async function scanImports(config: ResolvedConfig): Promise<{
         entryPoints: [entry],
         bundle: true,
         format: 'esm',
-        logLevel: 'error',
+        logLevel: 'silent',
         plugins: [...plugins, plugin],
         ...esbuildOptions
       })

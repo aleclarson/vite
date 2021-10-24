@@ -296,7 +296,7 @@ export async function optimizeDeps(
     format: 'esm',
     target: config.build.target || undefined,
     external: config.optimizeDeps?.exclude,
-    logLevel: 'error',
+    logLevel: 'silent',
     splitting: true,
     sourcemap: true,
     outdir: cacheDir,

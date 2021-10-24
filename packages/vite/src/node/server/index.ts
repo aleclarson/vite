@@ -44,7 +44,10 @@ import {
   transformWithEsbuild,
   ESBuildTransformResult
 } from '../plugins/esbuild'
-import { TransformOptions as EsbuildTransformOptions } from 'esbuild'
+import {
+  formatMessages,
+  TransformOptions as EsbuildTransformOptions
+} from 'esbuild'
 import { DepOptimizationMetadata, optimizeDeps } from '../optimizer'
 import { SSRContext, ssrLoadModule } from '../ssr/ssrModuleLoader'
 import { createMissingImporterRegisterFn } from '../optimizer/registerMissing'
@@ -582,6 +585,13 @@ export async function createServer(
           await runOptimize()
           isOptimized = true
         } catch (e) {
+          if (Array.isArray(e.errors)) {
+            const errors = await formatMessages(e.errors, {
+              kind: 'error',
+              color: true
+            })
+            config.logger.error(errors.join('\n').trim(), { error: e })
+          }
           httpServer.emit('error', e)
           return
         }
