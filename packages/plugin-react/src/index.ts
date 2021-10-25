@@ -241,6 +241,10 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           ? await babel.transformFromAstAsync(ast, code, babelOpts)
           : await babel.transformAsync(code, babelOpts)
 
+        if (result?.map) {
+          result.map.sourcesContent = [code]
+        }
+
         if (result) {
           let code = result.code!
           if (useFastRefresh && /\$RefreshReg\$\(/.test(code)) {
