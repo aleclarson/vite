@@ -31,11 +31,7 @@ export async function injectSourcesContent(
     } catch {}
   }
 
-  const needsContent = !map.sourcesContent
-  if (needsContent) {
-    map.sourcesContent = []
-  }
-
+  const sourcesContent = (map.sourcesContent ||= [])
   const missingSources: string[] = []
   await Promise.all(
     map.sources.map(async (sourcePath, i) => {
@@ -46,17 +42,20 @@ export async function injectSourcesContent(
           ? moduleGraph?.urlToModuleMap.get(sourcePath)
           : undefined
 
-      if (source) {
-        if (!source.file) return
-        sourcePath = source.file
-      } else if (sourceRoot) {
-        sourcePath = path.resolve(sourceRoot, decodeURI(sourcePath))
-      }
+      map.sources[i] = sourcePath = source
+        ? source.file
+        : sourceRoot
+        ? path.resolve(sourceRoot, decodeURI(sourcePath))
+        : sourcePath
 
-      map.sources[i] = sourcePath
-      if (needsContent) {
+      if (!sourcesContent[i]) {
+        // When meta.filename is undefined, assume the source is virtual.
+        if (source && !source.meta?.filename) {
+          missingSources.push(sourcePath)
+          return
+        }
         try {
-          map.sourcesContent![i] = await fs.readFile(sourcePath, 'utf-8')
+          sourcesContent[i] = await fs.readFile(sourcePath, 'utf-8')
         } catch {
           missingSources.push(sourcePath)
         }
