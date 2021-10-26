@@ -12,15 +12,7 @@ import { FS_PREFIX } from '../constants'
 import { TransformResult } from './transformRequest'
 
 export class ModuleNode {
-  /**
-   * Public served url path, starts with /
-   */
-  url: string
-  /**
-   * Resolved file system path + query
-   */
-  id: string | null = null
-  file: string | null = null
+  file: string
   type: 'js' | 'css'
   info?: ModuleInfo
   meta?: Record<string, any>
@@ -33,8 +25,17 @@ export class ModuleNode {
   ssrTransformResult: TransformResult | null = null
   lastHMRTimestamp = 0
 
-  constructor(url: string) {
-    this.url = url
+  constructor(
+    /**
+     * Resolved file system path + query
+     */
+    readonly id: string,
+    /**
+     * Public served url path, starts with /
+     */
+    readonly url: string
+  ) {
+    this.file = cleanUrl(id)
     this.type = isDirectCSSRequest(url) ? 'css' : 'js'
   }
 }
@@ -149,16 +150,14 @@ export class ModuleGraph {
     const [url, resolvedId, meta] = await this.resolveUrl(rawUrl)
     let mod = this.urlToModuleMap.get(url)
     if (!mod) {
-      mod = new ModuleNode(url)
+      mod = new ModuleNode(resolvedId, url)
       if (meta) mod.meta = meta
       this.urlToModuleMap.set(url, mod)
-      mod.id = resolvedId
       this.idToModuleMap.set(resolvedId, mod)
-      const file = (mod.file = cleanUrl(resolvedId))
-      let fileMappedModules = this.fileToModulesMap.get(file)
+      let fileMappedModules = this.fileToModulesMap.get(mod.file)
       if (!fileMappedModules) {
         fileMappedModules = new Set()
-        this.fileToModulesMap.set(file, fileMappedModules)
+        this.fileToModulesMap.set(mod.file, fileMappedModules)
       }
       fileMappedModules.add(mod)
     }
@@ -184,8 +183,7 @@ export class ModuleGraph {
       }
     }
 
-    const mod = new ModuleNode(url)
-    mod.file = file
+    const mod = new ModuleNode(file, url)
     fileMappedModules.add(mod)
     return mod
   }
