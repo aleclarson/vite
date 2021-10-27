@@ -150,15 +150,15 @@ export function ssrRewriteStacktrace(
     stackFrames.splice(i, 1)
   })
 
-  const message = location
-    ? codeFrameColumns(failedScript, location, {
-        highlightCode: true,
-        // ESBuild errors have the raw message in the `errors` array.
-        message: error.errors ? error.errors[0].text : error.message
-      })
-    : error.message
+  if (location) {
+    error.message = codeFrameColumns(failedScript, location, {
+      highlightCode: true,
+      // ESBuild errors have the raw message in the `errors` array.
+      message: error.errors ? error.errors[0].text : error.message
+    })
+  }
 
-  stack = message + '\n\n' + stackFrames.join('\n')
+  stack = error.message + '\n\n' + stackFrames.join('\n')
   rebindErrorStacktrace(error, stack)
 }
 
