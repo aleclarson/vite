@@ -8,8 +8,15 @@ import { ModuleGraph } from '../server/moduleGraph'
 
 const stackFrameRE = /^ {4}at (?:(.+?)\s+\()?(?:(.+?):(\d+)(?::(\d+))?)\)?/
 
+interface SSRError extends Error {
+  code?: unknown
+  errors?: any[]
+  originalStack?: string
+  file?: string
+}
+
 export function ssrRewriteStacktrace(
-  error: Error & { code?: unknown; errors?: any[]; originalStack?: string },
+  error: SSRError,
   moduleGraph: ModuleGraph,
   filter?: (source: string) => boolean
 ): void {
@@ -114,6 +121,7 @@ export function ssrRewriteStacktrace(
       }
 
       if (i == 0 && filename) {
+        error.file = filename
         failedScript = code || fs.readFileSync(filename, 'utf8')
         location = {
           start: {
