@@ -126,7 +126,7 @@ export function ssrRewriteStacktrace(
         location = {
           start: {
             line: Number(line),
-            column: Number(column)
+            column: Number(column + 1)
           }
         }
       } else if (filter?.(url) === false) {
