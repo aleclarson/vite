@@ -3,7 +3,7 @@ import path from 'path'
 import { Module } from 'module'
 import * as convertSourceMap from 'convert-source-map'
 import { ViteDevServer } from '../server'
-import { lookupFile, unwrapId } from '../utils'
+import { createDebugger, lookupFile, unwrapId } from '../utils'
 import { ssrRewriteStacktrace } from './ssrStacktrace'
 import {
   ssrExportAllKey,
@@ -18,6 +18,9 @@ import { hookNodeResolve } from '../plugins/ssrRequireHook'
 import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
 import { ModuleNode } from '../server/moduleGraph'
 import { loadPackageData } from '../packages'
+
+const isDebug = !!process.env.DEBUG
+const debug = createDebugger('vite:ssr')
 
 export type SSRModuleExports = Record<string, any>
 
@@ -126,13 +129,18 @@ export const ssrCreateContext = (
       (Array.isArray(moduleIds) ? moduleIds : [moduleIds]).map(async (id) => {
         // The given ID may be a file path or a dev URL.
         const mod = await server.moduleGraph.getModuleByUrl(id)
-        return mod
-          ? invalidate(mod.url)
-          : Promise.all(
-              Array.from(server.moduleGraph.getModulesByFile(id) || [], (mod) =>
-                invalidate(mod.url)
-              )
-            )
+        if (mod) {
+          return invalidate(mod.url)
+        }
+        const fileModules = server.moduleGraph.getModulesByFile(id)
+        if (fileModules) {
+          return Promise.all(
+            Array.from(fileModules, (mod) => invalidate(mod.url))
+          )
+        }
+        if (isDebug) {
+          debug(`Skipping reload. No modules found for "${id}"`)
+        }
       })
     )
 
