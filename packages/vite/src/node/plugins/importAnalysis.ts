@@ -378,9 +378,10 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           let url = normalizedUrl
 
           // record as safe modules
-          server?.moduleGraph.safeModulesPath.add(
-            cleanUrl(url).slice(4 /* '/@fs'.length */)
-          )
+          if (server && url.startsWith(FS_PREFIX))
+            server.moduleGraph.safeModulesPath.add(
+              cleanUrl(url).slice(4 /* '/@fs'.length */)
+            )
 
           // rewrite
           if (url !== specifier) {
