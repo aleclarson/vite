@@ -111,6 +111,9 @@ export const ssrCreateContext = (
         // Reload this module if not imported by any
         // module used in the current SSR context.
         if (isEntry) {
+          if (isDebug) {
+            debug(`Module "${url}" has no static importers. Reloading...`)
+          }
           await ssrLoadModule(url, server, this)
         }
 
@@ -259,6 +262,9 @@ async function resolveModule(
   // Throw a resolution error if skipped by every load hook.
   const transformResult = await transformRequest(url, server, { ssr: true })
   if (!transformResult) {
+    if (isDebug) {
+      debug(`[!] Module was resolved, but has no source code: "${url}"`)
+    }
     onFailedImport(new Error('Failed to resolve'), url, importer)
   }
 
@@ -321,6 +327,12 @@ async function executeModule(
     // Circular imports resolve with an incomplete module, so
     // imported values cannot be used in top-level statements.
     if (importChain.includes(dep)) {
+      if (isDebug) {
+        debug(
+          `[!] Circular import may lead to unexpected behavior\n  ` +
+            importChain.slice(importChain.indexOf(dep)).concat(dep).join(' → ')
+        )
+      }
       return (await context.resolvedModules.get(dep))!.exports
     }
     return ssrLoadModule(dep, server, context, importChain)
