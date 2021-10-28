@@ -2,7 +2,7 @@ import os from 'os'
 import fs from 'fs'
 import path from 'path'
 import { codeFrameColumns, SourceLocation } from '@babel/code-frame'
-import { SourceMapConsumer, RawSourceMap } from 'source-map'
+import { SourceMapConsumer, RawSourceMap, Position } from 'source-map'
 import * as convertSourceMap from 'convert-source-map'
 import { ModuleGraph } from '../server/moduleGraph'
 
@@ -13,6 +13,7 @@ interface SSRError extends Error {
   errors?: any[]
   originalStack?: string
   file?: string
+  loc?: Position & { file?: string }
 }
 
 export function ssrRewriteStacktrace(
@@ -38,8 +39,9 @@ export function ssrRewriteStacktrace(
   const headerIndex = stack.indexOf(header)
 
   let syntaxFrame: string | undefined
-  if (error.errors?.[0].location) {
-    const { file, line, column } = error.errors[0].location
+  if (error.loc || error.errors?.[0].location) {
+    const loc = error.loc || error.errors![0].location
+    const { file = error.file, line, column } = loc
     const mod = moduleGraph.getModuleById(file)
     syntaxFrame = (mod ? mod.url : file) + ':' + line + ':' + (column + 1)
   } else {
