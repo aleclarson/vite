@@ -101,20 +101,35 @@ export const ssrCreateContext = (
       }
       if (this.executedModules.delete(url)) {
         invalidated.add(url)
+        if (isDebug) {
+          debug(`Invalidating module: "${url}"`)
+        }
 
-        const mod = (await this.resolvedModules.get(url))!
+        // Invalidate the modules that statically imported
+        // this module, then await their invalidation.
+        let staticImporters: readonly string[]
+        try {
+          const mod = await this.resolvedModules.get(url)
+          staticImporters = mod!.staticImporters
+        } catch {
+          // The module failed to resolve earlier, so fetch its
+          // importers from its module graph node.
+          staticImporters = Array.from(
+            server.moduleGraph.urlToModuleMap.get(url)?.staticImporters || [],
+            (mod) => mod.url
+          )
+        }
+
         this.resolvedModules.delete(url)
-
-        // Invalidate any importers.
         const isEntry = !(
-          await Promise.all(mod.staticImporters.map(invalidate))
+          await Promise.all(staticImporters.map(invalidate))
         ).some(Boolean)
 
-        // Reload this module if not imported by any
-        // module used in the current SSR context.
+        // Only modules without an invalidated importer are re-executed.
+        // These include entry modules and dynamic imports.
         if (isEntry) {
           if (isDebug) {
-            debug(`Module "${url}" has no static importers. Reloading...`)
+            debug(`Re-executing module: "${url}"`)
           }
           await ssrLoadModule(url, server, this)
         }
@@ -148,9 +163,6 @@ export const ssrCreateContext = (
         }
       })
     )
-
-    // Wait for reloading to finish.
-    await Promise.all(this.loadingEntries)
   }
 })
 
