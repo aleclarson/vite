@@ -298,7 +298,11 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
               config.base + CLIENT_PUBLIC_PATH.slice(1)
             )}`,
             `const id = ${JSON.stringify(id)}`,
-            `const css = ${JSON.stringify(css)}`,
+            `const css = ${
+              config.mode === 'development'
+                ? `\`\n${css}\n\``
+                : JSON.stringify(css)
+            }`,
             `updateStyle(id, css)`,
             // css modules exports change on edit so it can't self accept
             `${modulesCode || `import.meta.hot.accept()\nexport default css`}`,
