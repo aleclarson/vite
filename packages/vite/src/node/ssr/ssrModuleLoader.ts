@@ -18,9 +18,11 @@ import { hookNodeResolve } from '../plugins/ssrRequireHook'
 import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
 import { ModuleNode } from '../server/moduleGraph'
 import { loadPackageData } from '../packages'
+import chalk from 'chalk'
 
 const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:ssr')
+const warn = (...msg: string[]) => debug(chalk.yellow('warn ') + msg.join(' '))
 
 export type SSRModuleExports = Record<string, any>
 
@@ -142,7 +144,7 @@ export const ssrCreateContext = (
           )
         }
         if (isDebug) {
-          debug(`Skipping reload. No modules found for "${id}"`)
+          warn(`Skipping reload. No modules found for "${id}"`)
         }
       })
     )
@@ -263,7 +265,7 @@ async function resolveModule(
   const transformResult = await transformRequest(url, server, { ssr: true })
   if (!transformResult) {
     if (isDebug) {
-      debug(`[!] Module was resolved, but has no source code: "${url}"`)
+      warn(`Module was resolved, but has no source code: "${url}"`)
     }
     onFailedImport(new Error('Failed to resolve'), url, importer)
   }
@@ -328,9 +330,9 @@ async function executeModule(
     // imported values cannot be used in top-level statements.
     if (importChain.includes(dep)) {
       if (isDebug) {
-        debug(
-          `[!] Circular import may lead to unexpected behavior\n  ` +
-            importChain.slice(importChain.indexOf(dep)).concat(dep).join(' → ')
+        warn(
+          `Circular import may lead to unexpected behavior\n `,
+          importChain.slice(importChain.indexOf(dep)).concat(dep).join(' → ')
         )
       }
       return (await context.resolvedModules.get(dep))!.exports
