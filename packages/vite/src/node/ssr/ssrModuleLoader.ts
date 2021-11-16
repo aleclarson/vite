@@ -63,6 +63,11 @@ export interface SSRContext {
 
 export interface SSRPlugin {
   /**
+   * Manually set the exports of a module, instead of loading
+   * it from the filesystem.
+   */
+  setExports?(id: string): SSRModuleExports | null | void
+  /**
    * The given `module` is about to be executed.
    *
    * If a function is returned, it's called after the `module`
@@ -202,6 +207,14 @@ export async function ssrLoadModule(
 
     let resolving = context.resolvedModules.get(url)
     if (!resolving) {
+      for (const plugin of context.plugins) {
+        const exports = plugin.setExports?.(url)
+        if (exports != null) {
+          context.executedModules.set(url, Promise.resolve(exports))
+          return exports
+        }
+      }
+
       resolving = resolveModule(url, server, importer)
       context.resolvedModules.set(url, resolving)
     }
