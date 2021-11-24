@@ -246,10 +246,12 @@ export async function ssrLoadModule(
 
     // Track the promises for entry modules.
     if (!importer) {
+      debug(`Loading entry: "${url}"`)
       const entryPromise = executing.catch(() => {})
       context.loadingEntries.add(entryPromise)
       entryPromise.then((exports) => {
         context.loadingEntries.delete(entryPromise)
+        debug(`Loaded entry: "${url}" (${context.loadingEntries.size} left)`)
         if (exports) {
           context.loadedEntries.add(resolving!)
         }
@@ -441,6 +443,7 @@ async function executeModule(
     throw e
   }
 
+  debug(`Executed module: "${importer.url}"`)
   return Object.freeze(importer.exports)
 }
 
