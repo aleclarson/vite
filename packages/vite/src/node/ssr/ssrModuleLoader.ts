@@ -57,8 +57,15 @@ export interface SSRContext {
   executedModules: Map<string, Promise<SSRModuleExports>>
   /** Returns true if a module should be executed w/o preprocessing */
   isExternal: (url: string) => boolean
-  /** Force one or many modules and their importers to reload */
-  reload: (moduleIds: string | string[]) => Promise<void>
+  purging: Set<Promise<any>>
+  /**
+   * Invalidate the exports of any modules that directly or indirectly depend
+   * on the given module IDs (dev server URLs and/or file paths).
+   *
+   * The invalidated modules won't be executed until needed by a `ssrLoadModule`
+   * function call.
+   */
+  purge: (moduleIds: string | string[]) => Promise<ModuleNode[]>
 }
 
 export interface SSRPlugin {
@@ -98,16 +105,18 @@ export const ssrCreateContext = (
     )),
     server.config.ssr?.noExternal
   ),
-  async reload(moduleIds) {
-    const invalidated = new Set<string>()
-    const invalidate = async (url: string) => {
-      if (invalidated.has(url)) {
-        return true
-      }
+  purging: new Set(),
+  async purge(moduleIds) {
+    const purged: ModuleNode[] = []
+    const purgeModulesRecursively = async (url: string) => {
       if (this.executedModules.delete(url)) {
-        invalidated.add(url)
         if (isDebug) {
-          debug(`Invalidating module: "${url}"`)
+          debug(`Purging module: "${url}"`)
+        }
+
+        const node = server.moduleGraph.urlToModuleMap.get(url)
+        if (node) {
+          purged.push(node)
         }
 
         // Invalidate the modules that statically imported
@@ -119,26 +128,13 @@ export const ssrCreateContext = (
         } catch {
           // The module failed to resolve earlier, so fetch its
           // importers from its module graph node.
-          staticImporters = Array.from(
-            server.moduleGraph.urlToModuleMap.get(url)?.staticImporters || [],
-            (mod) => mod.url
-          )
+          staticImporters = node
+            ? Array.from(node.staticImporters, (mod) => mod.url)
+            : []
         }
 
         this.resolvedModules.delete(url)
-        const isEntry = !(
-          await Promise.all(staticImporters.map(invalidate))
-        ).some(Boolean)
-
-        // Only modules without an invalidated importer are re-executed.
-        // These include entry modules and dynamic imports.
-        if (isEntry) {
-          if (isDebug) {
-            debug(`Re-executing module: "${url}"`)
-          }
-          await ssrLoadModule(url, server, this)
-        }
-
+        await Promise.all(staticImporters.map(purgeModulesRecursively))
         return true
       }
       return false
@@ -148,19 +144,21 @@ export const ssrCreateContext = (
     // By waiting, we avoid a race condition where a circular import is
     // performed after its dependency is invalidated, but before it's been
     // resolved, leading to an undefined module being returned.
-    await Promise.all(this.loadingEntries)
+    while (this.loadingEntries.size) {
+      await Promise.all(this.loadingEntries)
+    }
 
-    await Promise.all<any>(
+    const purging = Promise.all<any>(
       (Array.isArray(moduleIds) ? moduleIds : [moduleIds]).map(async (id) => {
         // The given ID may be a file path or a dev URL.
         const mod = await server.moduleGraph.getModuleByUrl(id)
         if (mod) {
-          return invalidate(mod.url)
+          return purgeModulesRecursively(mod.url)
         }
         const fileModules = server.moduleGraph.getModulesByFile(id)
         if (fileModules) {
           return Promise.all(
-            Array.from(fileModules, (mod) => invalidate(mod.url))
+            Array.from(fileModules, (mod) => purgeModulesRecursively(mod.url))
           )
         }
         if (isDebug) {
@@ -168,6 +166,15 @@ export const ssrCreateContext = (
         }
       })
     )
+
+    this.purging.add(purging)
+    try {
+      await purging
+    } finally {
+      this.purging.delete(purging)
+    }
+
+    return purged
   }
 })
 
@@ -199,6 +206,10 @@ export async function ssrLoadModule(
     return Promise.all(
       url.map((url) => ssrLoadModule(url, server, context, urlStack))
     )
+  }
+  // Wait for module purging to finish.
+  while (context.purging.size) {
+    await Promise.all(context.purging)
   }
   url = unwrapId(url)
   let executing = context.executedModules.get(url)
