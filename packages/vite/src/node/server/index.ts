@@ -79,7 +79,7 @@ export interface ServerOptions extends CommonServerOptions {
    * chokidar watch options
    * https://github.com/paulmillr/chokidar#api
    */
-  watch?: WatchOptions
+  watch?: WatchOptions | boolean
   /**
    * Create Vite dev server to be used as a middleware in an existing server
    */
