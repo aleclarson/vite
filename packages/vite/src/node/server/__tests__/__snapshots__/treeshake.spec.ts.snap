@@ -1,0 +1,166 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TreeShaking works 1`] = `
+"// virtual:/node_modules/lodash-es/_freeGlobal.js
+var freeGlobal = typeof global == \\"object\\" && global && global.Object === Object && global;
+var freeGlobal_default = freeGlobal;
+
+// virtual:/node_modules/lodash-es/_root.js
+var freeSelf = typeof self == \\"object\\" && self && self.Object === Object && self;
+var root = freeGlobal_default || freeSelf || Function(\\"return this\\")();
+var root_default = root;
+
+// virtual:/node_modules/lodash-es/_Symbol.js
+var Symbol = root_default.Symbol;
+var Symbol_default = Symbol;
+
+// virtual:/node_modules/lodash-es/_getRawTag.js
+var objectProto = Object.prototype;
+var hasOwnProperty = objectProto.hasOwnProperty;
+var nativeObjectToString = objectProto.toString;
+var symToStringTag = Symbol_default ? Symbol_default.toStringTag : void 0;
+function getRawTag(value) {
+  var isOwn = hasOwnProperty.call(value, symToStringTag), tag = value[symToStringTag];
+  try {
+    value[symToStringTag] = void 0;
+    var unmasked = true;
+  } catch (e) {
+  }
+  var result = nativeObjectToString.call(value);
+  if (unmasked) {
+    if (isOwn) {
+      value[symToStringTag] = tag;
+    } else {
+      delete value[symToStringTag];
+    }
+  }
+  return result;
+}
+var getRawTag_default = getRawTag;
+
+// virtual:/node_modules/lodash-es/_objectToString.js
+var objectProto2 = Object.prototype;
+var nativeObjectToString2 = objectProto2.toString;
+function objectToString(value) {
+  return nativeObjectToString2.call(value);
+}
+var objectToString_default = objectToString;
+
+// virtual:/node_modules/lodash-es/_baseGetTag.js
+var nullTag = \\"[object Null]\\";
+var undefinedTag = \\"[object Undefined]\\";
+var symToStringTag2 = Symbol_default ? Symbol_default.toStringTag : void 0;
+function baseGetTag(value) {
+  if (value == null) {
+    return value === void 0 ? undefinedTag : nullTag;
+  }
+  return symToStringTag2 && symToStringTag2 in Object(value) ? getRawTag_default(value) : objectToString_default(value);
+}
+var baseGetTag_default = baseGetTag;
+
+// virtual:/node_modules/lodash-es/isObjectLike.js
+function isObjectLike(value) {
+  return value != null && typeof value == \\"object\\";
+}
+var isObjectLike_default = isObjectLike;
+
+// virtual:/node_modules/lodash-es/isSymbol.js
+var symbolTag = \\"[object Symbol]\\";
+function isSymbol(value) {
+  return typeof value == \\"symbol\\" || isObjectLike_default(value) && baseGetTag_default(value) == symbolTag;
+}
+var isSymbol_default = isSymbol;
+
+// virtual:/node_modules/lodash-es/_baseToNumber.js
+var NAN = 0 / 0;
+function baseToNumber(value) {
+  if (typeof value == \\"number\\") {
+    return value;
+  }
+  if (isSymbol_default(value)) {
+    return NAN;
+  }
+  return +value;
+}
+var baseToNumber_default = baseToNumber;
+
+// virtual:/node_modules/lodash-es/_arrayMap.js
+function arrayMap(array, iteratee) {
+  var index = -1, length = array == null ? 0 : array.length, result = Array(length);
+  while (++index < length) {
+    result[index] = iteratee(array[index], index, array);
+  }
+  return result;
+}
+var arrayMap_default = arrayMap;
+
+// virtual:/node_modules/lodash-es/isArray.js
+var isArray = Array.isArray;
+var isArray_default = isArray;
+
+// virtual:/node_modules/lodash-es/_baseToString.js
+var INFINITY = 1 / 0;
+var symbolProto = Symbol_default ? Symbol_default.prototype : void 0;
+var symbolToString = symbolProto ? symbolProto.toString : void 0;
+function baseToString(value) {
+  if (typeof value == \\"string\\") {
+    return value;
+  }
+  if (isArray_default(value)) {
+    return arrayMap_default(value, baseToString) + \\"\\";
+  }
+  if (isSymbol_default(value)) {
+    return symbolToString ? symbolToString.call(value) : \\"\\";
+  }
+  var result = value + \\"\\";
+  return result == \\"0\\" && 1 / value == -INFINITY ? \\"-0\\" : result;
+}
+var baseToString_default = baseToString;
+
+// virtual:/node_modules/lodash-es/_createMathOperation.js
+function createMathOperation(operator, defaultValue) {
+  return function(value, other) {
+    var result;
+    if (value === void 0 && other === void 0) {
+      return defaultValue;
+    }
+    if (value !== void 0) {
+      result = value;
+    }
+    if (other !== void 0) {
+      if (result === void 0) {
+        return other;
+      }
+      if (typeof value == \\"string\\" || typeof other == \\"string\\") {
+        value = baseToString_default(value);
+        other = baseToString_default(other);
+      } else {
+        value = baseToNumber_default(value);
+        other = baseToNumber_default(other);
+      }
+      result = operator(value, other);
+    }
+    return result;
+  };
+}
+var createMathOperation_default = createMathOperation;
+
+// virtual:/node_modules/lodash-es/add.js
+var add = createMathOperation_default(function(augend, addend) {
+  return augend + addend;
+}, 0);
+var add_default = add;
+export {
+  add_default as add
+};
+/**
+ * @license
+ * Lodash (Custom Build) <https://lodash.com/>
+ * Build: \`lodash modularize exports=\\"es\\" -o ./\`
+ * Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+"
+`;
