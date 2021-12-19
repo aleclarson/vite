@@ -3,7 +3,7 @@ import path from 'path'
 import getEtag from 'etag'
 import * as convertSourceMap from 'convert-source-map'
 import { ExistingRawSourceMap, SourceDescription, SourceMap } from 'rollup'
-import { ViteDevServer } from '..'
+import { FSWatcher, ModuleGraph, PluginContainer, ResolvedConfig } from '..'
 import chalk from 'chalk'
 import {
   createDebugger,
@@ -38,34 +38,42 @@ export interface TransformOptions {
   html?: boolean
 }
 
-export function transformRequest(
-  url: string,
-  server: ViteDevServer,
-  options: TransformOptions = {}
-): Promise<TransformResult | null> {
-  const cacheKey = (options.ssr ? 'ssr:' : options.html ? 'html:' : '') + url
-  let request = server._pendingRequests.get(cacheKey)
-  if (!request) {
-    request = doTransform(url, server, options)
-    server._pendingRequests.set(cacheKey, request)
-    const done = () => server._pendingRequests.delete(cacheKey)
-    request.then(done, done)
-  }
-  return request
+export interface TransformContext {
+  config: ResolvedConfig
+  watcher?: FSWatcher | null
+  moduleGraph: ModuleGraph
+  pluginContainer: PluginContainer
+  pendingRequests: Map<string, Promise<TransformResult | null>>
 }
+
+export const createTransformer = (context: TransformContext) =>
+  function transformRequest(
+    url: string,
+    options: TransformOptions = {}
+  ): Promise<TransformResult | null> {
+    const cacheKey = (options.ssr ? 'ssr:' : options.html ? 'html:' : '') + url
+    let request = context.pendingRequests.get(cacheKey)
+    if (!request) {
+      request = doTransform(url, context, options)
+      context.pendingRequests.set(cacheKey, request)
+      const done = () => context.pendingRequests.delete(cacheKey)
+      request.then(done, done)
+    }
+    return request
+  }
 
 async function doTransform(
   url: string,
-  server: ViteDevServer,
+  context: TransformContext,
   options: TransformOptions
 ) {
   url = removeTimestampQuery(url)
-  const { config, pluginContainer, moduleGraph, watcher } = server
+  const { config, pluginContainer, moduleGraph, watcher } = context
   const { root, logger } = config
   const prettyUrl = isDebug ? prettifyUrl(url, root) : ''
   const ssr = !!options.ssr
 
-  const module = await server.moduleGraph.getModuleByUrl(url)
+  const module = await moduleGraph.getModuleByUrl(url)
 
   // check if we have a fresh cache
   let cached =
@@ -102,7 +110,7 @@ async function doTransform(
     // as string
     // only try the fallback if access is allowed, skip for out of root url
     // like /service-worker.js or /api/users
-    if (options.ssr || isFileServingAllowed(file, server)) {
+    if (options.ssr || isFileServingAllowed(file, config, moduleGraph)) {
       try {
         code = await fs.readFile(file, 'utf-8')
         isDebug && debugLoad(`${timeFrom(loadStart)} [fs] ${prettyUrl}`)

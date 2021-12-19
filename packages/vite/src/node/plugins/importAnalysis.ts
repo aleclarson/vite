@@ -42,7 +42,6 @@ import { transformImportGlob } from '../importGlob'
 import { makeLegalIdentifier } from '@rollup/pluginutils'
 import { shouldExternalizeForSSR } from '../ssr/ssrExternal'
 import { performance } from 'perf_hooks'
-import { transformRequest } from '../server/transformRequest'
 
 const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:import-analysis')
@@ -547,7 +546,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
       // pre-transform known direct imports
       if (staticImportedUrls.size) {
         staticImportedUrls.forEach((url) => {
-          transformRequest(unwrapId(removeImportQuery(url)), server, { ssr })
+          server.transformRequest(unwrapId(removeImportQuery(url)), { ssr })
         })
       }
 

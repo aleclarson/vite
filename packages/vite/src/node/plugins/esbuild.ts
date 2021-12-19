@@ -241,7 +241,7 @@ export const buildEsbuildPlugin = (config: ResolvedConfig): Plugin => {
   }
 }
 
-function prettifyMessage(m: Message, code: string): string {
+export function prettifyMessage(m: Message, code: string): string {
   let res = chalk.yellow(m.text)
   if (m.location) {
     const lines = code.split(/\r?\n/g)

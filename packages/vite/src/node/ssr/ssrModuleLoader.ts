@@ -12,7 +12,7 @@ import {
   ssrImportMetaKey,
   ssrDynamicImportKey
 } from './ssrTransform'
-import { transformRequest, TransformResult } from '../server/transformRequest'
+import { TransformResult } from '../server/transformRequest'
 import { InternalResolveOptions, tryNodeResolve } from '../plugins/resolve'
 import { hookNodeResolve } from '../plugins/ssrRequireHook'
 import { createSSRExternalsFilter, resolveSSRExternal } from './ssrExternal'
@@ -300,7 +300,7 @@ async function resolveModule(
   }
 
   // Throw a resolution error if skipped by every load hook.
-  const transformResult = await transformRequest(url, server, { ssr: true })
+  const transformResult = await server.transformRequest(url, { ssr: true })
   if (!transformResult) {
     if (isDebug) {
       warn(`Module was resolved, but has no source code: "${url}"`)

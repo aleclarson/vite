@@ -48,8 +48,10 @@ import { scanImports } from './optimizer/scan'
 import { assetImportMetaUrlPlugin } from './plugins/assetImportMetaUrl'
 import { loadFallbackPlugin } from './plugins/loadFallback'
 import { watchPackageDataPlugin } from './packages'
+import { nitroBuild, NitroBuildOptions } from './experimental/nitro'
 
 export interface BuildOptions {
+  nitro?: boolean | NitroBuildOptions
   /**
    * Base public path when served in production.
    * @deprecated `base` is now a root-level config option.
@@ -372,6 +374,10 @@ async function doBuild(
       )}`
     )
   )
+
+  if (options.nitro) {
+    return nitroBuild(config)
+  }
 
   const resolve = (p: string) => path.resolve(config.root, p)
   const input = libOptions
