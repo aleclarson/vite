@@ -75,6 +75,7 @@ export interface InternalResolveOptions extends ResolveOptions {
 export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
   const {
     root,
+    isBuild,
     isProduction,
     asSrc,
     ssrConfig,
@@ -103,8 +104,8 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
     mainFields: ['main']
   }
 
-  if (!requireOptions.isBuild) {
-    requireOptions.cjsInclude = undefined
+  if (!isBuild) {
+    baseOptions.cjsInclude = requireOptions.cjsInclude = undefined
   }
 
   let server: ViteDevServer | undefined
