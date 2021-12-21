@@ -41,6 +41,7 @@ export async function resolvePlugins(
       isProduction: config.isProduction,
       isBuild,
       packageCache: config.packageCache,
+      symlinkResolver: config.symlinkResolver,
       ssrConfig: config.ssr,
       asSrc: true
     }),

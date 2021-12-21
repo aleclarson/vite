@@ -190,7 +190,13 @@ async function doTransform(
       })
 
   if (cached.map) {
-    await injectSourcesContent(cached.map, mod.file, logger, moduleGraph)
+    await injectSourcesContent(
+      cached.map,
+      mod.file,
+      logger,
+      config.symlinkResolver,
+      moduleGraph
+    )
   }
 
   return cached

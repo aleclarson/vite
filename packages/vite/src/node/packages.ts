@@ -4,6 +4,7 @@ import { createFilter } from '@rollup/pluginutils'
 import { createDebugger, resolveFrom } from './utils'
 import { ResolvedConfig } from './config'
 import { Plugin } from './plugin'
+import type { SymlinkResolver } from './symlinks'
 
 const isDebug = process.env.DEBUG
 const debug = createDebugger('vite:resolve-details', {
@@ -47,14 +48,30 @@ export function invalidatePackageData(
 export function resolvePackageData(
   id: string,
   basedir: string,
-  preserveSymlinks = false,
+  preserveSymlinks?: boolean,
+  packageCache?: PackageCache,
+  cjsInclude?: (string | RegExp)[]
+): PackageData | null
+
+export function resolvePackageData(
+  id: string,
+  basedir: string,
+  symlinkResolver?: SymlinkResolver | boolean,
+  packageCache?: PackageCache,
+  cjsInclude?: (string | RegExp)[]
+): PackageData | null
+
+export function resolvePackageData(
+  id: string,
+  basedir: string,
+  symlinkResolver: SymlinkResolver | boolean = false,
   packageCache?: PackageCache,
   cjsInclude?: (string | RegExp)[]
 ): PackageData | null {
   let pkg: PackageData | undefined
   let cacheKey: string | undefined
   if (packageCache) {
-    cacheKey = `${id}&${basedir}&${preserveSymlinks}`
+    cacheKey = `${id}&${basedir}&${symlinkResolver === true}`
     if ((pkg = packageCache.get(cacheKey))) {
       return pkg
     }
@@ -62,7 +79,7 @@ export function resolvePackageData(
   let pkgPath: string | undefined
   try {
     pkgPath = resolveFrom(`${id}/package.json`, basedir, true)
-    pkg = loadPackageData(pkgPath, preserveSymlinks, packageCache, cjsInclude)
+    pkg = loadPackageData(pkgPath, symlinkResolver, packageCache, cjsInclude)
     if (packageCache) {
       packageCache.set(cacheKey!, pkg)
     }
@@ -84,10 +101,28 @@ export function loadPackageData(
   preserveSymlinks?: boolean,
   packageCache?: PackageCache,
   cjsInclude?: (string | RegExp)[]
+): PackageData
+
+export function loadPackageData(
+  pkgPath: string,
+  symlinkResolver?: SymlinkResolver | boolean,
+  packageCache?: PackageCache,
+  cjsInclude?: (string | RegExp)[]
+): PackageData
+
+export function loadPackageData(
+  pkgPath: string,
+  symlinkResolver: SymlinkResolver | boolean = false,
+  packageCache?: PackageCache,
+  cjsInclude?: (string | RegExp)[]
 ): PackageData {
-  if (!preserveSymlinks) {
+  if (symlinkResolver !== true) {
     const originalPkgPath = pkgPath
-    pkgPath = fs.realpathSync.native(pkgPath)
+
+    // Support uncached realpath calls for backwards compatibility.
+    pkgPath = symlinkResolver
+      ? symlinkResolver.realpathSync(pkgPath)
+      : fs.realpathSync.native(pkgPath)
 
     // In case a linked package is a local clone of a CommonJS dependency,
     // we need to ensure @rollup/plugin-commonjs analyzes the package even

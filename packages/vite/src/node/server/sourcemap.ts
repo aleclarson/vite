@@ -3,6 +3,7 @@ import { promises as fs } from 'fs'
 import { Logger } from '../logger'
 import { createDebugger } from '../utils'
 import { ModuleGraph } from './moduleGraph'
+import type { SymlinkResolver } from '../symlinks'
 
 const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:sourcemap', {
@@ -19,13 +20,14 @@ export async function injectSourcesContent(
   map: SourceMapLike,
   file: string | null,
   logger: Logger,
+  symlinkResolver: SymlinkResolver,
   moduleGraph?: ModuleGraph
 ): Promise<void> {
   let sourceRoot: string | undefined
   if (file) {
     try {
       // The source root is undefined for virtual modules and permission errors.
-      sourceRoot = await fs.realpath(
+      sourceRoot = symlinkResolver.realpathSync(
         path.resolve(path.dirname(file), map.sourceRoot || '')
       )
     } catch {}
