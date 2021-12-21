@@ -125,6 +125,18 @@ export interface Plugin extends RollupPlugin {
   ): Promise<string | null | undefined> | string | null | undefined
 
   /**
+   * Rewrite the specifier of a static `import` statement during the `transform`
+   * plugin phase (before it gets processed by `resolveId` hooks).
+   *
+   * **This hook is only applied in build mode.**
+   */
+  rewriteStaticImport?(
+    id: string,
+    importer: string | undefined,
+    ssr: boolean
+  ): Promise<string | null | undefined> | string | null | undefined
+
+  /**
    * extend hooks with ssr flag
    */
   resolveId?(

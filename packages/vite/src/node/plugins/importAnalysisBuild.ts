@@ -93,6 +93,8 @@ export function buildImportAnalysisPlugin(config: ResolvedConfig): Plugin {
     : `(${detectScriptRel.toString()})()`
   const preloadCode = `const scriptRel = ${scriptRel};const seen = {};const base = '${preloadBaseMarker}';export const ${preloadMethod} = ${preload.toString()}`
 
+  const rewritePlugins = config.plugins.filter((p) => p.rewriteStaticImport)
+
   return {
     name: 'vite:build-import-analysis',
 
@@ -186,6 +188,21 @@ export function buildImportAnalysisPlugin(config: ResolvedConfig): Plugin {
         ) {
           const url = specifier.replace(/\?|$/, (m) => `?used${m ? '&' : ''}`)
           str().overwrite(start, end, dynamicIndex > -1 ? `'${url}'` : url)
+          continue
+        }
+
+        if (specifier && dynamicIndex == -1) {
+          for (const plugin of rewritePlugins) {
+            const replacement = await plugin.rewriteStaticImport!(
+              specifier,
+              importer,
+              ssr
+            )
+            if (replacement) {
+              str().overwrite(start, end, replacement)
+              break
+            }
+          }
         }
       }
 
