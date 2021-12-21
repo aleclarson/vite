@@ -89,7 +89,7 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
 
   const { target: ssrTarget, noExternal: ssrNoExternal } = ssrConfig ?? {}
   const ssrOptions: InternalResolveOptions = {
-    ...requireOptions,
+    ...baseOptions,
     conditions: ['node'],
     // Skip the optimizer.
     isBuild: true,
