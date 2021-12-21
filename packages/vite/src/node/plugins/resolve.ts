@@ -58,6 +58,7 @@ export interface InternalResolveOptions extends ResolveOptions {
   isProduction: boolean
   ssrConfig?: SSROptions
   packageCache?: PackageCache
+  cjsInclude?: (string | RegExp)[]
   /**
    * src code mode also attempts the following:
    * - resolving /xxx as URLs
@@ -94,6 +95,10 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
     // Prefer CommonJS modules.
     extensions: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
     mainFields: ['main']
+  }
+
+  if (!requireOptions.isBuild) {
+    requireOptions.cjsInclude = undefined
   }
 
   let server: ViteDevServer | undefined
@@ -449,10 +454,17 @@ export function tryNodeResolve(
   }
 
   let pkg!: PackageData | null
-  const pkgId = possiblePkgIds.reverse().find((pkgId) => {
-    pkg = resolvePackageData(pkgId, basedir, preserveSymlinks, packageCache)
-    return pkg
-  })!
+  const pkgId = possiblePkgIds.reverse().find(
+    (pkgId) =>
+      // When a package is found, stop looking.
+      (pkg = resolvePackageData(
+        pkgId,
+        basedir,
+        preserveSymlinks,
+        packageCache,
+        options.cjsInclude
+      ))
+  )!
 
   if (!pkg) {
     return
