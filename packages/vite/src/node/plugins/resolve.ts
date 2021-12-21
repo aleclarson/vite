@@ -26,7 +26,7 @@ import {
   nestedResolveFrom
 } from '../utils'
 import { ViteDevServer, SSROptions } from '..'
-import { PartialResolvedId } from 'rollup'
+import { ExternalOption, PartialResolvedId } from 'rollup'
 import { resolve as _resolveExports } from 'resolve.exports'
 import {
   loadPackageData,
@@ -92,8 +92,14 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
     conditions: ['node'],
     // Skip the optimizer.
     isBuild: true,
-    // Prefer CommonJS modules.
-    extensions: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
+    mainFields: DEFAULT_MAIN_FIELDS.concat('main')
+  }
+
+  // Externalized imports are more stringent.
+  const ssrExternalOptions: InternalResolveOptions = {
+    ...ssrOptions,
+    isRequire: true,
+    extensions: ['.js', '.cjs', '.json'],
     mainFields: ['main']
   }
 
@@ -102,11 +108,19 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
   }
 
   let server: ViteDevServer | undefined
+  let isExternal: Extract<ExternalOption, Function> | undefined
   return {
     name: 'vite:resolve',
 
     configureServer(_server) {
       server = _server
+    },
+
+    options(opts) {
+      if (typeof opts.external === 'function') {
+        isExternal = opts.external
+      }
+      return null
     },
 
     resolveId(id, importer, resolveOpts, ssr) {
@@ -129,7 +143,9 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
         resolveOpts.custom['node-resolve'].isRequire
 
       const options = ssr
-        ? ssrOptions
+        ? isExternal && isExternal(id, importer, false)
+          ? ssrExternalOptions
+          : ssrOptions
         : isRequire
         ? requireOptions
         : baseOptions
