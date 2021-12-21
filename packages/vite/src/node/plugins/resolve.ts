@@ -231,13 +231,7 @@ export function resolvePlugin(baseOptions: InternalResolveOptions): Plugin {
           tryNodeResolve(id, importer, options, targetWeb, server, ssr)
 
         if (res) {
-          if (!ssr) {
-            return res
-          }
-          const resId = typeof res === 'string' ? res : res.id
-          if (path.isAbsolute(resId) && resId.startsWith(root + '/')) {
-            return res
-          }
+          return res
         }
 
         if (ssr) {
