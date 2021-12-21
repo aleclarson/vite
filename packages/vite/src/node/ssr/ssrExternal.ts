@@ -30,10 +30,6 @@ export function resolveSSRExternal(
   if (ssrConfig?.noExternal === true) {
     return []
   }
-  ssrConfig?.external?.forEach((id) => {
-    ssrExternals.add(id)
-    seen.add(id)
-  })
 
   collectExternals(config.root, config.packageCache, ssrExternals, seen)
 
@@ -46,13 +42,23 @@ export function resolveSSRExternal(
 
   ssrExternals.delete('vite')
 
-  let externals = [...ssrExternals]
   if (ssrConfig?.noExternal) {
-    externals = externals.filter(
-      createFilter(undefined, ssrConfig.noExternal, { resolve: false })
-    )
+    const isBundled = createFilter(ssrConfig.noExternal, undefined, {
+      resolve: false
+    })
+    ssrExternals.forEach((id) => {
+      if (isBundled(id)) {
+        ssrExternals.delete(id)
+      }
+    })
   }
-  return externals
+
+  // "ssr.external" overrides "ssr.noExternal"
+  ssrConfig?.external?.forEach((id) => {
+    ssrExternals.add(id)
+  })
+
+  return [...ssrExternals]
 }
 
 function collectExternals(
