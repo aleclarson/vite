@@ -522,11 +522,17 @@ export function tryNodeResolve(
     basedir = nestedResolveFrom(nestedRoot, basedir, symlinkResolver)
   }
 
-  let pkg: PackageData | undefined
-  const pkgId = possiblePkgIds.reverse().find((pkgId) => {
-    pkg = resolvePackageData(pkgId, basedir, symlinkResolver, packageCache)!
-    return pkg
-  })!
+  let pkg!: PackageData | null
+  const pkgId = possiblePkgIds.reverse().find(
+    (pkgId) =>
+      // When a package is found, stop looking.
+      (pkg = resolvePackageData(
+        pkgId,
+        basedir,
+        symlinkResolver || options.preserveSymlinks,
+        packageCache
+      ))
+  )!
 
   if (!pkg) {
     return

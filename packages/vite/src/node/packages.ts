@@ -55,7 +55,7 @@ export function resolvePackageData(
 export function resolvePackageData(
   id: string,
   basedir: string,
-  symlinkResolver?: SymlinkResolver,
+  symlinkResolver?: SymlinkResolver | boolean,
   packageCache?: PackageCache
 ): PackageData | null
 

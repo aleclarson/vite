@@ -8,6 +8,7 @@ const debug = createDebugger('vite:symlinks')
 export interface SymlinkResolver {
   fsCalls: number
   cacheHits: number
+  cacheSize: number
   realpathSync(path: string, seen?: Set<string>): string
   invalidate(path: string): void
 }
@@ -25,7 +26,7 @@ export function createSymlinkResolver(
   root: string,
   fs: FileSystem = require('fs')
 ): SymlinkResolver {
-  const cache: Record<string, string> = {}
+  const cache: Record<string, string> = Object.create(null)
 
   // Recursively check the cache.
   const resolveWithCache = (unresolvedPath: string) => {
@@ -39,25 +40,11 @@ export function createSymlinkResolver(
     return resolvedPath
   }
 
-  /**
-   * If `/a/b/c/d` gets resolved to `/a/x/c/d` by a call to `fs.realpath`,
-   * there are 6 path mappings eligible for caching:
-   *
-   *     "/a/b/c/d" => "/a/x/c/d"
-   *     "/a/x/c/d" => "/a/x/c/d"
-   *     "/a/b/c"   => "/a/x/c"
-   *     "/a/x/c"   => "/a/x/c"
-   *     "/a/b"     => "/a/x"
-   *     "/a/x"     => "/a/x"
-   */
-  const cacheRecursively = (parentPath: string, resolvedPath: string) => {
-    cache[parentPath] = resolvedPath
-    if (parentPath !== resolvedPath) {
-      if (isDebug) {
-        debug(`Resolved "${parentPath}" to "${resolvedPath}"`)
-      }
+  const rootParent = path.dirname(root)
+  const cacheRecursively = (resolvedPath: string) => {
+    while (resolvedPath !== rootParent) {
       cache[resolvedPath] = resolvedPath
-      cacheRecursively(path.dirname(parentPath), path.dirname(resolvedPath))
+      resolvedPath = path.dirname(resolvedPath)
     }
   }
 
@@ -67,7 +54,10 @@ export function createSymlinkResolver(
     // Increment "cacheHits" when a call to our `realpathSync` method
     // is short-circuited by the cache.
     cacheHits: 0,
-    // This method assumes `targetPath` is normalized.
+    get cacheSize() {
+      return Object.keys(cache).length
+    },
+    // This method assumes `unresolvedPath` is normalized.
     realpathSync(unresolvedPath, seen) {
       if (isVerbose && !seen) {
         debug(`Called realpathSync on "${unresolvedPath}"`)
@@ -103,7 +93,15 @@ export function createSymlinkResolver(
 
         this.fsCalls++
         resolvedPath = fs.realpathSync.native(parentPath)
-        cacheRecursively(parentPath, resolvedPath)
+        cache[parentPath] = resolvedPath
+        if (isDebug && parentPath !== resolvedPath) {
+          debug(`Resolved "${parentPath}" to "${resolvedPath}"`)
+        }
+        // Since fs.realpath resolves all directories in a given path,
+        // we can safely cache every directory in the resolved path.
+        if (resolvedPath.startsWith(root + '/')) {
+          cacheRecursively(resolvedPath)
+        }
       }
 
       // Append the unresolved subpath.
