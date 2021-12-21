@@ -5,6 +5,9 @@
  * LICENSE file at
  * https://github.com/rollup/plugins/blob/master/LICENSE
  */
+
+type RequireReturnsDefaultOption = boolean | 'auto' | 'preferred' | 'namespace'
+
 export interface RollupCommonJSOptions {
   /**
    * A minimatch pattern, or array of patterns, which specifies the files in
@@ -37,7 +40,8 @@ export interface RollupCommonJSOptions {
    */
   ignoreGlobal?: boolean
   /**
-   * If false, skips source map generation for CommonJS modules. This will improve performance.
+   * If false, skips source map generation for CommonJS modules. This will
+   * improve performance.
    * @default true
    */
   sourceMap?: boolean
@@ -71,6 +75,26 @@ export interface RollupCommonJSOptions {
    * @default []
    */
   ignore?: ReadonlyArray<string> | ((id: string) => boolean)
+  /**
+   * In most cases, where `require` calls are inside a `try-catch` clause,
+   * they should be left unconverted as it requires an optional dependency
+   * that may or may not be installed beside the rolled up package.
+   * Due to the conversion of `require` to a static `import` - the call is hoisted
+   * to the top of the file, outside of the `try-catch` clause.
+   *
+   * - `true`: All `require` calls inside a `try` will be left unconverted.
+   * - `false`: All `require` calls inside a `try` will be converted as if the `try-catch` clause is not there.
+   * - `remove`: Remove all `require` calls from inside any `try` block.
+   * - `string[]`: Pass an array containing the IDs to left unconverted.
+   * - `((id: string) => boolean|'remove')`: Pass a function that control individual IDs.
+   *
+   * @default false
+   */
+  ignoreTryCatch?:
+    | boolean
+    | 'remove'
+    | ReadonlyArray<string>
+    | ((id: string) => boolean | 'remove')
   /**
    * Controls how to render imports from external dependencies. By default,
    * this plugin assumes that all external dependencies are CommonJS. This
@@ -140,11 +164,8 @@ export interface RollupCommonJSOptions {
    * @default false
    */
   requireReturnsDefault?:
-    | boolean
-    | 'auto'
-    | 'preferred'
-    | 'namespace'
-    | ((id: string) => boolean | 'auto' | 'preferred' | 'namespace')
+    | RequireReturnsDefaultOption
+    | ((id: string) => RequireReturnsDefaultOption)
   /**
    * Some modules contain dynamic `require` calls, or require modules that
    * contain circular dependencies, which are not handled well by static
@@ -156,7 +177,20 @@ export interface RollupCommonJSOptions {
    * rendered as absolute in the final bundle. The plugin tries to avoid
    * exposing paths from the local machine, but if you are `dynamicRequirePaths`
    * with paths that are far away from your project's folder, that may require
-   * replacing strings like `"/Users/John/Desktop/foo-project/"` -\> `"/"`.
+   * replacing strings like `"/Users/John/Desktop/foo-project/"` -> `"/"`.
    */
   dynamicRequireTargets?: string | ReadonlyArray<string>
+  /**
+   * Controls what is the default export when importing a CommonJS file from an
+   * ES module.
+   *
+   * - `true`: The value of the default export is `module.exports`. This
+   *   currently matches the behavior of Node.js when importing a CommonJS file.
+   * - `false`: The value of the default export is `exports.default`.
+   * - `"auto"`: The value of the default export is `exports.default` if the
+   *   CommonJS file has an `exports.__esModule === true` property; otherwise
+   *   it's `module.exports`. This makes it possible to import the default export
+   *   of ES modules compiled to CommonJS as if they were not compiled.
+   */
+  defaultIsModuleExports?: boolean | 'auto'
 }
