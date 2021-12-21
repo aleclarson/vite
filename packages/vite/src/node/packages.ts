@@ -4,6 +4,7 @@ import { createFilter } from '@rollup/pluginutils'
 import { createDebugger, resolveFrom } from './utils'
 import type { ResolvedConfig } from './config'
 import type { Plugin } from './plugin'
+import type { SymlinkResolver } from './symlinks'
 
 const isDebug = process.env.DEBUG
 const debug = createDebugger('vite:resolve-details', {
@@ -47,21 +48,35 @@ export function invalidatePackageData(
 export function resolvePackageData(
   id: string,
   basedir: string,
-  preserveSymlinks = false,
+  preserveSymlinks?: boolean,
+  packageCache?: PackageCache
+): PackageData | null
+
+export function resolvePackageData(
+  id: string,
+  basedir: string,
+  symlinkResolver?: SymlinkResolver,
+  packageCache?: PackageCache
+): PackageData | null
+
+export function resolvePackageData(
+  id: string,
+  basedir: string,
+  symlinkResolver: SymlinkResolver | boolean = false,
   packageCache?: PackageCache
 ): PackageData | null {
   let pkg: PackageData | undefined
   let cacheKey: string | undefined
   if (packageCache) {
-    cacheKey = `${id}&${basedir}&${preserveSymlinks}`
+    cacheKey = `${id}&${basedir}&${symlinkResolver === true}`
     if ((pkg = packageCache.get(cacheKey))) {
       return pkg
     }
   }
   let pkgPath: string | undefined
   try {
-    pkgPath = resolveFrom(`${id}/package.json`, basedir, preserveSymlinks)
-    pkg = loadPackageData(pkgPath, true, packageCache)
+    pkgPath = resolveFrom(`${id}/package.json`, basedir, true)
+    pkg = loadPackageData(pkgPath, symlinkResolver, packageCache)
     if (packageCache) {
       packageCache.set(cacheKey!, pkg)
     }
@@ -82,9 +97,24 @@ export function loadPackageData(
   pkgPath: string,
   preserveSymlinks?: boolean,
   packageCache?: PackageCache
+): PackageData
+
+export function loadPackageData(
+  pkgPath: string,
+  symlinkResolver?: SymlinkResolver | boolean,
+  packageCache?: PackageCache
+): PackageData
+
+export function loadPackageData(
+  pkgPath: string,
+  symlinkResolver: SymlinkResolver | boolean = false,
+  packageCache?: PackageCache
 ): PackageData {
-  if (!preserveSymlinks) {
-    pkgPath = fs.realpathSync.native(pkgPath)
+  if (symlinkResolver !== true) {
+    // Support uncached realpath calls for backwards compatibility.
+    pkgPath = symlinkResolver
+      ? symlinkResolver.realpathSync(pkgPath)
+      : fs.realpathSync.native(pkgPath)
   }
 
   let cached: PackageData | undefined

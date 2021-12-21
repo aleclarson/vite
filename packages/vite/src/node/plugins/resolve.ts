@@ -34,6 +34,7 @@ import type { PartialResolvedId } from 'rollup'
 import { resolve as _resolveExports } from 'resolve.exports'
 import type { PackageCache, PackageData } from '../packages'
 import { loadPackageData, resolvePackageData } from '../packages'
+import type { SymlinkResolver } from '../symlinks'
 
 // special id for paths marked with browser: false
 // https://github.com/defunctzombie/package-browser-field-spec#ignore-a-module
@@ -58,6 +59,7 @@ export interface InternalResolveOptions extends ResolveOptions {
   isProduction: boolean
   ssrConfig?: SSROptions
   packageCache?: PackageCache
+  symlinkResolver?: SymlinkResolver
   /**
    * src code mode also attempts the following:
    * - resolving /xxx as URLs
@@ -463,7 +465,10 @@ export function tryNodeResolve(
   server?: ViteDevServer,
   ssr?: boolean
 ): PartialResolvedId | undefined {
-  const { root, dedupe, isBuild, preserveSymlinks, packageCache } = options
+  const { root, dedupe, isBuild, packageCache } = options
+  const symlinkResolver = !options.preserveSymlinks
+    ? options.symlinkResolver
+    : undefined
 
   // split id by last '>' for nested selected packages, for example:
   // 'foo > bar > baz' => 'foo > bar' & 'baz'
@@ -514,12 +519,12 @@ export function tryNodeResolve(
 
   // nested node module, step-by-step resolve to the basedir of the nestedPath
   if (nestedRoot) {
-    basedir = nestedResolveFrom(nestedRoot, basedir, preserveSymlinks)
+    basedir = nestedResolveFrom(nestedRoot, basedir, symlinkResolver)
   }
 
   let pkg: PackageData | undefined
   const pkgId = possiblePkgIds.reverse().find((pkgId) => {
-    pkg = resolvePackageData(pkgId, basedir, preserveSymlinks, packageCache)!
+    pkg = resolvePackageData(pkgId, basedir, symlinkResolver, packageCache)!
     return pkg
   })!
 

@@ -39,6 +39,7 @@ import aliasPlugin from '@rollup/plugin-alias'
 import { build } from 'esbuild'
 import { performance } from 'perf_hooks'
 import type { PackageCache } from './packages'
+import { createSymlinkResolver, SymlinkResolver } from './symlinks'
 
 const debug = createDebugger('vite:config')
 
@@ -233,6 +234,8 @@ export type ResolvedConfig = Readonly<
     optimizeDeps: Omit<DepOptimizationOptions, 'keepNames'>
     /** @internal */
     packageCache: PackageCache
+    /** @internal */
+    symlinkResolver: SymlinkResolver
   }
 >
 
@@ -457,6 +460,7 @@ export async function resolveConfig(
     },
     logger,
     packageCache: new Map(),
+    symlinkResolver: createSymlinkResolver(resolvedRoot),
     createResolver,
     optimizeDeps: {
       ...config.optimizeDeps,

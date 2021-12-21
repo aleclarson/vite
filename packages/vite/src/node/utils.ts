@@ -20,6 +20,7 @@ import type {
   RawSourceMap
 } from '@ampproject/remapping/dist/types/types'
 import { performance } from 'perf_hooks'
+import type { SymlinkResolver } from './symlinks'
 
 export function slash(p: string): string {
   return p.replace(/\\/g, '/')
@@ -97,12 +98,15 @@ export function resolveFrom(
 export function nestedResolveFrom(
   id: string,
   basedir: string,
-  preserveSymlinks = false
+  symlinkResolver?: SymlinkResolver
 ): string {
   const pkgs = id.split('>').map((pkg) => pkg.trim())
   try {
     for (const pkg of pkgs) {
-      basedir = resolveFrom(pkg, basedir, preserveSymlinks)
+      basedir = resolveFrom(pkg, basedir, true)
+      if (symlinkResolver) {
+        basedir = symlinkResolver.realpathSync(basedir)
+      }
     }
   } catch {}
   return basedir
