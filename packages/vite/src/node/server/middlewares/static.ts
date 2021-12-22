@@ -17,6 +17,7 @@ import {
   isWindows,
   slash
 } from '../../utils'
+import { ModuleGraph } from '../moduleGraph'
 import { AccessRestrictedError } from './error'
 
 export function resolveStaticOptions(config: ServerOptions): Options {
@@ -126,33 +127,36 @@ export function serveRawFsMiddleware(
 
 export function isFileServingAllowed(
   url: string,
-  server: ViteDevServer
+  config: ResolvedConfig,
+  moduleGraph: ModuleGraph
 ): boolean {
   // explicitly disabled
-  if (server.config.server.fs.strict === false) return true
+  if (config.server.fs.strict === false) {
+    return true
+  }
 
   const file = ensureLeadingSlash(normalizePath(cleanUrl(url)))
 
-  if (server.moduleGraph.safeModulesPath.has(file)) return true
-
-  if (server.config.server.fs.allow.some((i) => file.startsWith(i + '/')))
+  if (moduleGraph.safeModulesPath.has(file)) {
     return true
-
-  if (!server.config.server.fs.strict) {
-    server.config.logger.warnOnce(`Unrestricted file system access to "${url}"`)
-    server.config.logger.warnOnce(
+  }
+  if (config.server.fs.allow.some((i) => file.startsWith(i + '/'))) {
+    return true
+  }
+  if (!config.server.fs.strict) {
+    config.logger.warnOnce(`Unrestricted file system access to "${url}"`)
+    config.logger.warnOnce(
       `For security concerns, accessing files outside of serving allow list will ` +
         `be restricted by default in the future version of Vite. ` +
         `Refer to https://vitejs.dev/config/#server-fs-allow for more details.`
     )
     return true
   }
-
   return false
 }
 
 export function ensureServingAccess(url: string, server: ViteDevServer): void {
-  if (!isFileServingAllowed(url, server)) {
+  if (!isFileServingAllowed(url, server.config, server.moduleGraph)) {
     const allow = server.config.server.fs.allow
     throw new AccessRestrictedError(
       `The request url "${url}" is outside of Vite serving allow list:

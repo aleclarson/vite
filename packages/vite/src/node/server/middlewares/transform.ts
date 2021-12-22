@@ -14,7 +14,6 @@ import {
   unwrapId
 } from '../../utils'
 import { send } from '../send'
-import { transformRequest } from '../transformRequest'
 import { isHTMLProxy } from '../../plugins/html'
 import chalk from 'chalk'
 import {
@@ -167,7 +166,7 @@ export function transformMiddleware(
         }
 
         // resolve, load and transform using the plugin container
-        const result = await transformRequest(url, server, {
+        const result = await server.transformRequest(url, {
           html: req.headers.accept?.includes('text/html')
         })
         if (result) {

@@ -42,7 +42,9 @@ import launchEditorMiddleware from 'launch-editor-middleware'
 import {
   TransformOptions,
   TransformResult,
-  transformRequest
+  transformRequest,
+  TransformContext,
+  createTransformer
 } from './transformRequest'
 import {
   transformWithEsbuild,
@@ -304,10 +306,6 @@ export interface ViteDevServer {
    * @internal
    */
   _pendingReload: Promise<void> | null
-  /**
-   * @internal
-   */
-  _pendingRequests: Map<string, Promise<TransformResult | null>>
 }
 
 export async function createServer(
@@ -359,9 +357,13 @@ export async function createServer(
     ws,
     moduleGraph,
     transformWithEsbuild,
-    transformRequest(url, options) {
-      return transformRequest(url, server, options)
-    },
+    transformRequest: createTransformer({
+      config,
+      watcher,
+      moduleGraph,
+      pluginContainer: container,
+      pendingRequests: new Map()
+    }),
     transformIndexHtml: null!, // to be immediately set
     ssrRewriteStacktrace(error, filter) {
       if (!error.originalStack) {
@@ -422,8 +424,7 @@ export async function createServer(
     _forceOptimizeOnRestart: false,
     _isRunningOptimizer: false,
     _registerMissingImport: null,
-    _pendingReload: null,
-    _pendingRequests: new Map()
+    _pendingReload: null
   }
 
   server.transformIndexHtml = createDevHtmlTransformFn(server)
