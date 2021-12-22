@@ -97,12 +97,14 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
   const clientPublicPath = base + CLIENT_PUBLIC_PATH.slice(1)
 
   let server: ViteDevServer
+  let shouldPreTransform: boolean
 
   return {
     name: 'vite:import-analysis',
 
     configureServer(_server) {
       server = _server
+      shouldPreTransform = !server.config.server.lazyTransform
     },
 
     async transform(source, importer, ssr) {
@@ -545,7 +547,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         )
 
       // pre-transform known direct imports
-      if (staticImportedUrls.size) {
+      if (shouldPreTransform && staticImportedUrls.size) {
         staticImportedUrls.forEach((url) => {
           transformRequest(unwrapId(removeImportQuery(url)), server, { ssr })
         })
