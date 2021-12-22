@@ -3,8 +3,8 @@ import path from 'path'
 import getEtag from 'etag'
 import * as convertSourceMap from 'convert-source-map'
 import { ExistingRawSourceMap, SourceDescription, SourceMap } from 'rollup'
-import { FSWatcher, ModuleGraph, PluginContainer, ResolvedConfig } from '..'
 import chalk from 'chalk'
+import type { TransformContext } from '../transform'
 import {
   createDebugger,
   cleanUrl,
@@ -36,14 +36,6 @@ export interface TransformResult {
 export interface TransformOptions {
   ssr?: boolean
   html?: boolean
-}
-
-export interface TransformContext {
-  config: ResolvedConfig
-  watcher?: FSWatcher | null
-  moduleGraph: ModuleGraph
-  pluginContainer: PluginContainer
-  pendingRequests: Map<string, Promise<TransformResult | null>>
 }
 
 export const createTransformer = (context: TransformContext) =>

@@ -10,6 +10,8 @@ export { transformWithEsbuild } from './plugins/esbuild'
 export { applyHtmlTransforms, resolveHtmlTransforms } from './plugins/html'
 export { resolvePackageEntry } from './plugins/resolve'
 export { resolvePackageData } from './packages'
+export { createTransformContext } from './transform'
+export { createTransformer } from './server/transformRequest'
 export { normalizePath } from './utils'
 
 // additional types

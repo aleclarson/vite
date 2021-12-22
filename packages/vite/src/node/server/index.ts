@@ -6,7 +6,6 @@ import connect from 'connect'
 import corsMiddleware from 'cors'
 import chalk from 'chalk'
 import { AddressInfo } from 'net'
-import chokidar from 'chokidar'
 import {
   resolveHttpsConfig,
   resolveHttpServer,
@@ -14,7 +13,7 @@ import {
   CommonServerOptions
 } from '../http'
 import { resolveConfig, InlineConfig, ResolvedConfig } from '../config'
-import { createPluginContainer, PluginContainer } from './pluginContainer'
+import { PluginContainer } from './pluginContainer'
 import { FSWatcher, WatchOptions } from 'types/chokidar'
 import { createWebSocketServer, WebSocketServer } from './ws'
 import { baseMiddleware } from './middlewares/base'
@@ -34,7 +33,7 @@ import {
 import { timeMiddleware } from './middlewares/time'
 import { ModuleGraph, ModuleNode } from './moduleGraph'
 import { Connect } from 'types/connect'
-import { ensureLeadingSlash, isObject, normalizePath } from '../utils'
+import { ensureLeadingSlash, normalizePath } from '../utils'
 import { errorMiddleware, prepareError } from './middlewares/error'
 import { handleHMRUpdate, HmrOptions, handleFileAddUnlink } from './hmr'
 import { openBrowser } from './openBrowser'
@@ -42,8 +41,6 @@ import launchEditorMiddleware from 'launch-editor-middleware'
 import {
   TransformOptions,
   TransformResult,
-  transformRequest,
-  TransformContext,
   createTransformer
 } from './transformRequest'
 import {
@@ -65,6 +62,7 @@ import { invalidatePackageData } from '../packages'
 import { printCommonServerUrls } from '../logger'
 import { performance } from 'perf_hooks'
 import { bindShortcuts } from './shortcuts'
+import { createTransformContext } from '..'
 
 export { searchForWorkspaceRoot } from './searchRoot'
 
@@ -329,14 +327,9 @@ export async function createServer(
       ? createWebSocketServer(httpServer, config, httpsOptions)
       : null
 
-  const watcher =
-    serverConfig.watch !== false ? createWatcher(root, serverConfig) : null
+  const { watcher, moduleGraph, pluginContainer } =
+    await createTransformContext(config, serverConfig.watch)
 
-  const moduleGraph: ModuleGraph = new ModuleGraph((url) =>
-    container.resolveId(url)
-  )
-
-  const container = await createPluginContainer(config, moduleGraph, watcher)
   const closeHttpServer = createServerCloseFn(httpServer)
 
   // eslint-disable-next-line prefer-const
@@ -353,7 +346,7 @@ export async function createServer(
     },
     httpServer,
     watcher,
-    pluginContainer: container,
+    pluginContainer,
     ws,
     moduleGraph,
     transformWithEsbuild,
@@ -361,7 +354,7 @@ export async function createServer(
       config,
       watcher,
       moduleGraph,
-      pluginContainer: container,
+      pluginContainer,
       pendingRequests: new Map()
     }),
     transformIndexHtml: null!, // to be immediately set
@@ -390,7 +383,7 @@ export async function createServer(
       await Promise.all([
         watcher?.close(),
         ws?.close(),
-        container.close(),
+        pluginContainer.close(),
         closeHttpServer()
       ])
     },
@@ -588,7 +581,7 @@ export async function createServer(
     httpServer.listen = (async (port: number, ...args: any[]) => {
       if (!isOptimized) {
         try {
-          await container.buildStart({})
+          await pluginContainer.buildStart({})
           await runOptimize()
           isOptimized = true
         } catch (e) {
@@ -606,7 +599,7 @@ export async function createServer(
       return listen(port, ...args)
     }) as any
   } else {
-    await container.buildStart({})
+    await pluginContainer.buildStart({})
     await runOptimize()
   }
 
@@ -735,25 +728,6 @@ export function resolveServerOptions(
   }
   server.static = resolveStaticOptions(server)
   return server as ResolvedServerOptions
-}
-
-function createWatcher(root: string, serverOptions: ServerOptions) {
-  const { ignored = [], ...watchOptions } = isObject(serverOptions.watch)
-    ? serverOptions.watch
-    : {}
-
-  return chokidar.watch(path.resolve(root), {
-    ignored: [
-      '**/node_modules/**',
-      '**/.git/**',
-      ...(Array.isArray(ignored) ? ignored : [ignored])
-    ],
-    ignoreInitial: true,
-    ignorePermissionErrors: true,
-    disableGlobbing: true,
-    ...watchOptions,
-    followSymlinks: false
-  }) as FSWatcher
 }
 
 async function restartServer(server: ViteDevServer) {
