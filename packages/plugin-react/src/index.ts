@@ -321,6 +321,8 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
   }
 
   const runtimeId = 'react/jsx-runtime'
+  const runtimeDep = '\0:node_modules:' + runtimeId
+
   // Adapted from https://github.com/alloc/vite-react-jsx
   const viteReactJsx: Plugin = {
     name: 'vite:react-jsx',
@@ -333,10 +335,12 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
       }
     },
     resolveId(id: string) {
-      return id === runtimeId ? id : null
+      // Include "node_modules" in the resolved `runtimeId` to ensure
+      // its module is added to the vendor chunk.
+      return id === runtimeId ? runtimeDep : null
     },
     load(id: string) {
-      if (id === runtimeId) {
+      if (id === runtimeDep) {
         const runtimePath = resolve.sync(runtimeId, {
           basedir: projectRoot
         })
