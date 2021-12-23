@@ -333,6 +333,8 @@ let parallelCallCounts = 0
 // bundle is even pushed.
 const parallelBuilds: RollupBuild[] = []
 
+export { RollupOutput }
+
 export type ViteBuild = {
   output: RollupOutput[]
   cache: RollupCache | undefined

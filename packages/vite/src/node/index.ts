@@ -25,6 +25,7 @@ export type {
 } from './server'
 export type {
   ViteBuild,
+  RollupOutput,
   BuildOptions,
   LibraryOptions,
   LibraryFormats,
