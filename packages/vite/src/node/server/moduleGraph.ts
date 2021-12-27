@@ -38,6 +38,11 @@ export class ModuleNode {
     this.file = cleanUrl(id)
     this.type = isDirectCSSRequest(url) ? 'css' : 'js'
   }
+
+  /** For compatibility with Vitest */
+  get importers() {
+    return this.staticImporters
+  }
 }
 
 export type ResolvedUrl = [
