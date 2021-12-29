@@ -580,3 +580,11 @@ export async function mapSerial<T, U>(
   }
   return results
 }
+
+export function isBuildOutputEsm(config: import('./config').ResolvedConfig) {
+  const outputs = arraify(config.build.rollupOptions.output)
+  return outputs.some((output) => {
+    const format = output?.format
+    return format && (format === 'es' || format === 'esm')
+  })
+}

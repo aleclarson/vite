@@ -3,7 +3,11 @@ import MagicString from 'magic-string'
 import path from 'path'
 import { fileToUrl } from './asset'
 import { ResolvedConfig } from '../config'
-import { multilineCommentsRE, singlelineCommentsRE } from '../utils'
+import {
+  isBuildOutputEsm,
+  multilineCommentsRE,
+  singlelineCommentsRE
+} from '../utils'
 
 /**
  * Convert `new URL('./foo.png', import.meta.url)` to its resolved built URL
@@ -16,6 +20,9 @@ import { multilineCommentsRE, singlelineCommentsRE } from '../utils'
  * ```
  */
 export function assetImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
+  const isBuild = config.command === 'build'
+  const skipBasicInlining = isBuild && isBuildOutputEsm(config)
+
   return {
     name: 'vite:asset-import-meta-url',
     async transform(code, id, ssr) {
@@ -30,17 +37,21 @@ export function assetImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
         while ((match = importMetaUrlRE.exec(noCommentsCode))) {
           const { 0: exp, 1: rawUrl, index } = match
 
-          if (ssr && config.command !== 'build') {
+          if (ssr && !isBuild) {
             this.error(
               `\`new URL(url, import.meta.url)\` is not supported in SSR.`,
               index
             )
           }
 
+          const isDynamicTemplate = rawUrl[0] === '`' && /\$\{/.test(rawUrl)
+          if (!isDynamicTemplate && skipBasicInlining) {
+            continue
+          }
+
           if (!s) s = new MagicString(code)
 
-          // potential dynamic template string
-          if (rawUrl[0] === '`' && /\$\{/.test(rawUrl)) {
+          if (isDynamicTemplate) {
             const ast = this.parse(rawUrl)
             const templateLiteral = (ast as any).body[0].expression
             if (templateLiteral.expressions.length) {

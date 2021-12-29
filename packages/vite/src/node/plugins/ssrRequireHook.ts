@@ -1,7 +1,7 @@
 import MagicString from 'magic-string'
 import { ResolvedConfig } from '..'
 import { Plugin } from '../plugin'
-import { arraify } from '../utils'
+import { isBuildOutputEsm } from '../utils'
 
 export function ssrRequireHookPlugin(config: ResolvedConfig): Plugin | null {
   if (
@@ -67,11 +67,4 @@ export function hookNodeResolve(
   return () => {
     Module._resolveFilename = resolveFilename
   }
-}
-
-function isBuildOutputEsm(config: ResolvedConfig) {
-  const outputs = arraify(config.build.rollupOptions?.output)
-  return outputs.some(
-    (output) => output?.format === 'es' || output?.format === 'esm'
-  )
 }
