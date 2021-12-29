@@ -30,7 +30,7 @@ export function assetImportMetaUrlPlugin(config: ResolvedConfig): Plugin {
         while ((match = importMetaUrlRE.exec(noCommentsCode))) {
           const { 0: exp, 1: rawUrl, index } = match
 
-          if (ssr) {
+          if (ssr && config.command !== 'build') {
             this.error(
               `\`new URL(url, import.meta.url)\` is not supported in SSR.`,
               index
