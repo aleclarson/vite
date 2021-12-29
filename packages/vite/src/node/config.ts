@@ -267,7 +267,7 @@ export async function resolveConfig(
   // production-specific behavior, so set it here even though we haven't
   // resolve the final mode yet
   if (mode === 'production') {
-    process.env['NODE_ENV'] = 'production'
+    process.env.NODE_ENV = 'production'
   }
 
   const configEnv = {
@@ -350,7 +350,7 @@ export async function resolveConfig(
   const isProduction = (process.env.VITE_USER_NODE_ENV || mode) === 'production'
   if (isProduction) {
     // in case default mode was not production and is overwritten
-    process.env['NODE_ENV'] = 'production'
+    process.env.NODE_ENV = 'production'
   }
 
   // resolve public base url
@@ -1082,7 +1082,7 @@ export function loadEnv(
           env[key] = value
         } else if (key === 'NODE_ENV') {
           // NODE_ENV override in .env file
-          process.env['VITE_USER_NODE_ENV'] = value
+          process.env.VITE_USER_NODE_ENV = value
         }
       }
     }
