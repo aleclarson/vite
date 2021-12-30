@@ -367,7 +367,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         const isRelativeBase = config.base === '' || config.base.startsWith('.')
         css = css.replace(assetUrlRE, (_, fileHash, postfix = '') => {
           const filename = getAssetFilename(fileHash, config) + postfix
-          registerAssetToChunk(chunk, filename)
+          registerAssetToChunk(config, chunk, filename)
           if (!isRelativeBase || inlined) {
             // absolute base or relative base but inlined (injected as style tag into
             // index.html) use the base as-is

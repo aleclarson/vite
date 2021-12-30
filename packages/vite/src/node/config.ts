@@ -247,6 +247,8 @@ export type ResolvedConfig = Readonly<
     symlinkResolver: SymlinkResolver
     /** @internal */
     chunkToEmittedCssFileMap: WeakMap<RenderedChunk, Set<string>>
+    /** @internal */
+    chunkToEmittedAssetsMap: WeakMap<RenderedChunk, Set<string>>
   }
 >
 
@@ -500,6 +502,7 @@ export async function resolveConfig(
     packageCache: new Map(),
     symlinkResolver: createSymlinkResolver(resolvedRoot),
     chunkToEmittedCssFileMap: new Map(),
+    chunkToEmittedAssetsMap: new Map(),
     createResolver,
     optimizeDeps: {
       ...config.optimizeDeps,

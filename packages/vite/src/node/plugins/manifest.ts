@@ -2,7 +2,6 @@ import path from 'path'
 import { OutputChunk } from 'rollup'
 import { ResolvedConfig } from '..'
 import { Plugin } from '../plugin'
-import { chunkToEmittedAssetsMap } from './asset'
 import { normalizePath } from '../utils'
 
 export type Manifest = Record<string, ManifestChunk>
@@ -94,7 +93,7 @@ export function manifestPlugin(config: ResolvedConfig): Plugin {
           manifestChunk.css = [...cssFiles]
         }
 
-        const assets = chunkToEmittedAssetsMap.get(chunk)
+        const assets = config.chunkToEmittedAssetsMap.get(chunk)
         if (assets) [(manifestChunk.assets = [...assets])]
 
         return manifestChunk

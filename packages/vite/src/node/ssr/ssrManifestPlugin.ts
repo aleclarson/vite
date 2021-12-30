@@ -2,7 +2,6 @@ import { relative } from 'path'
 import { normalizePath } from '@rollup/pluginutils'
 import { ResolvedConfig } from '..'
 import { Plugin } from '../plugin'
-import { chunkToEmittedAssetsMap } from '../plugins/asset'
 
 export function ssrManifestPlugin(config: ResolvedConfig): Plugin {
   // module id => preload assets mapping
@@ -20,7 +19,7 @@ export function ssrManifestPlugin(config: ResolvedConfig): Plugin {
           const cssFiles = chunk.isEntry
             ? null
             : config.chunkToEmittedCssFileMap.get(chunk)
-          const assetFiles = chunkToEmittedAssetsMap.get(chunk)
+          const assetFiles = config.chunkToEmittedAssetsMap.get(chunk)
           for (const id in chunk.modules) {
             const normalizedId = normalizePath(relative(config.root, id))
             const mappedChunks =

@@ -20,8 +20,6 @@ const assetUrlQuotedRE = /"__VITE_ASSET__([a-z\d]{8})__(?:\$_(.*?)__)?"/g
 const rawRE = /(\?|&)raw(?:&|$)/
 const urlRE = /(\?|&)url(?:&|$)/
 
-export const chunkToEmittedAssetsMap = new WeakMap<RenderedChunk, Set<string>>()
-
 const assetCache = new WeakMap<ResolvedConfig, Map<string, string>>()
 
 const assetHashToFilenameMap = new WeakMap<
@@ -91,7 +89,7 @@ export function assetPlugin(config: ResolvedConfig): Plugin {
         // some internal plugins may still need to emit chunks (e.g. worker) so
         // fallback to this.getFileName for that.
         const file = getAssetFilename(hash, config) || this.getFileName(hash)
-        registerAssetToChunk(chunk, file)
+        registerAssetToChunk(config, chunk, file)
         const outputFilepath = config.base + file + postfix
         s.overwrite(
           match.index,
@@ -125,11 +123,15 @@ export function assetPlugin(config: ResolvedConfig): Plugin {
   }
 }
 
-export function registerAssetToChunk(chunk: RenderedChunk, file: string): void {
-  let emitted = chunkToEmittedAssetsMap.get(chunk)
+export function registerAssetToChunk(
+  config: ResolvedConfig,
+  chunk: RenderedChunk,
+  file: string
+): void {
+  let emitted = config.chunkToEmittedAssetsMap.get(chunk)
   if (!emitted) {
     emitted = new Set()
-    chunkToEmittedAssetsMap.set(chunk, emitted)
+    config.chunkToEmittedAssetsMap.set(chunk, emitted)
   }
   emitted.add(cleanUrl(file))
 }
