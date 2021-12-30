@@ -114,6 +114,13 @@ export interface ServerOptions extends CommonServerOptions {
    * @default true
    */
   bindShortcuts?: boolean
+  /**
+   * Pre-transform known direct imports
+   *
+   * @experimental this option is experimental and might be changed in the future
+   * @default true
+   */
+  preTransformRequests?: boolean
 }
 
 export interface ResolvedServerOptions extends ServerOptions {
@@ -702,7 +709,10 @@ export function resolveServerOptions(
   root: string,
   raw?: ServerOptions
 ): ResolvedServerOptions {
-  const server = raw || {}
+  const server: ResolvedServerOptions = {
+    preTransformRequests: true,
+    ...(raw as ResolvedServerOptions)
+  }
   let allowDirs = server.fs?.allow
 
   if (!allowDirs) {
@@ -723,7 +733,7 @@ export function resolveServerOptions(
     allow: allowDirs
   }
   server.static = resolveStaticOptions(server)
-  return server as ResolvedServerOptions
+  return server
 }
 
 async function restartServer(server: ViteDevServer) {
