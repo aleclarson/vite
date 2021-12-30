@@ -2,7 +2,6 @@ import { relative } from 'path'
 import { normalizePath } from '@rollup/pluginutils'
 import { ResolvedConfig } from '..'
 import { Plugin } from '../plugin'
-import { chunkToEmittedCssFileMap } from '../plugins/css'
 import { chunkToEmittedAssetsMap } from '../plugins/asset'
 
 export function ssrManifestPlugin(config: ResolvedConfig): Plugin {
@@ -20,7 +19,7 @@ export function ssrManifestPlugin(config: ResolvedConfig): Plugin {
           // in those cases we only need to record info for non-entry chunks
           const cssFiles = chunk.isEntry
             ? null
-            : chunkToEmittedCssFileMap.get(chunk)
+            : config.chunkToEmittedCssFileMap.get(chunk)
           const assetFiles = chunkToEmittedAssetsMap.get(chunk)
           for (const id in chunk.modules) {
             const normalizedId = normalizePath(relative(config.root, id))

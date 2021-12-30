@@ -2,7 +2,6 @@ import path from 'path'
 import { OutputChunk } from 'rollup'
 import { ResolvedConfig } from '..'
 import { Plugin } from '../plugin'
-import { chunkToEmittedCssFileMap } from './css'
 import { chunkToEmittedAssetsMap } from './asset'
 import { normalizePath } from '../utils'
 
@@ -90,7 +89,7 @@ export function manifestPlugin(config: ResolvedConfig): Plugin {
           }
         }
 
-        const cssFiles = chunkToEmittedCssFileMap.get(chunk)
+        const cssFiles = config.chunkToEmittedCssFileMap.get(chunk)
         if (cssFiles) {
           manifestChunk.css = [...cssFiles]
         }

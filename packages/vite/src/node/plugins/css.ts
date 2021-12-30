@@ -117,11 +117,6 @@ const cssModulesCache = new WeakMap<
   Map<string, Record<string, string>>
 >()
 
-export const chunkToEmittedCssFileMap = new WeakMap<
-  RenderedChunk,
-  Set<string>
->()
-
 export const removedPureCssFilesCache = new WeakMap<
   ResolvedConfig,
   Map<string, RenderedChunk>
@@ -253,6 +248,8 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
  * Plugin applied after user plugins
  */
 export function cssPostPlugin(config: ResolvedConfig): Plugin {
+  const { chunkToEmittedCssFileMap } = config
+
   // styles initialization in buildStart causes a styling loss in watch
   const styles: Map<string, string> = new Map<string, string>()
   let pureCssChunks: Set<string>

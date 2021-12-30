@@ -18,7 +18,7 @@ import {
   urlToBuiltUrl,
   getAssetFilename
 } from './asset'
-import { isCSSRequest, chunkToEmittedCssFileMap } from './css'
+import { isCSSRequest } from './css'
 import { modulePreloadPolyfillId } from './modulePreloadPolyfill'
 import {
   AttributeNode,
@@ -381,7 +381,7 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
           })
         }
 
-        const cssFiles = chunkToEmittedCssFileMap.get(chunk)
+        const cssFiles = config.chunkToEmittedCssFileMap.get(chunk)
         if (cssFiles) {
           cssFiles.forEach((file) => {
             if (!seen.has(file)) {

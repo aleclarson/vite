@@ -48,6 +48,7 @@ import { build } from 'esbuild'
 import { performance } from 'perf_hooks'
 import { PackageCache } from './packages'
 import { createSymlinkResolver, SymlinkResolver } from './symlinks'
+import { RenderedChunk } from 'rollup'
 
 const debug = createDebugger('vite:config')
 
@@ -244,6 +245,8 @@ export type ResolvedConfig = Readonly<
     optimizeDeps: Omit<DepOptimizationOptions, 'keepNames'>
     /** @internal */
     symlinkResolver: SymlinkResolver
+    /** @internal */
+    chunkToEmittedCssFileMap: WeakMap<RenderedChunk, Set<string>>
   }
 >
 
@@ -496,6 +499,7 @@ export async function resolveConfig(
     logger,
     packageCache: new Map(),
     symlinkResolver: createSymlinkResolver(resolvedRoot),
+    chunkToEmittedCssFileMap: new Map(),
     createResolver,
     optimizeDeps: {
       ...config.optimizeDeps,
