@@ -48,6 +48,7 @@ import { transform, formatMessages } from 'esbuild'
 // const debug = createDebugger('vite:css')
 
 export interface CSSOptions {
+  minify?: boolean
   /**
    * https://github.com/css-modules/postcss-modules
    */
@@ -249,6 +250,8 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
  */
 export function cssPostPlugin(config: ResolvedConfig): Plugin {
   const { chunkToEmittedCssFileMap } = config
+  const isMinificationEnabled =
+    config.build.minify !== false || config.css?.minify === true
 
   // styles initialization in buildStart causes a styling loss in watch
   const styles: Map<string, string> = new Map<string, string>()
@@ -382,7 +385,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         if (css.includes('@import')) {
           css = await hoistAtImports(css)
         }
-        if (minify && config.build.minify) {
+        if (minify && isMinificationEnabled) {
           css = await minifyCSS(css, config)
         }
         return css
@@ -498,7 +501,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
       if (extractedCss && !hasEmitted) {
         hasEmitted = true
         // minify css
-        if (config.build.minify) {
+        if (isMinificationEnabled) {
           extractedCss = await minifyCSS(extractedCss, config)
         }
         this.emitFile({
