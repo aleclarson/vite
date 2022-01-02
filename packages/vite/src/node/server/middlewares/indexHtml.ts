@@ -50,11 +50,12 @@ const processNodeUrl = (
   const url = node.value?.content || ''
   if (startsWithSingleSlashRE.test(url)) {
     // prefix with base
-    s.overwrite(
-      node.value!.loc.start.offset,
-      node.value!.loc.end.offset,
-      `"${config.base + url.slice(1)}"`
-    )
+    if (!url.startsWith(config.base))
+      s.overwrite(
+        node.value!.loc.start.offset,
+        node.value!.loc.end.offset,
+        `"${config.base + url.slice(1)}"`
+      )
   } else if (
     url.startsWith('.') &&
     originalUrl &&
