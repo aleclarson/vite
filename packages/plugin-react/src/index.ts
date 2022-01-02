@@ -57,6 +57,9 @@ export interface Options {
   parserPlugins?: ParserOptions['plugins']
 }
 
+const prodRuntimeId = 'react/jsx-runtime'
+const devRuntimeId = 'react/jsx-dev-runtime'
+
 export default function viteReact(opts: Options = {}): PluginOption[] {
   // Provide default values for Rollup compat.
   let base = '/'
@@ -320,8 +323,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
     }
   }
 
-  const runtimeId = 'react/jsx-runtime'
-  const runtimeDep = '\0:node_modules:' + runtimeId
+  const runtimeDep = '\0:node_modules:' + prodRuntimeId
 
   // Adapted from https://github.com/alloc/vite-react-jsx
   const viteReactJsx: Plugin = {
@@ -330,28 +332,39 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
     config() {
       return {
         optimizeDeps: {
-          include: ['react/jsx-dev-runtime']
+          include: [prodRuntimeId, devRuntimeId]
         }
       }
     },
     resolveId(id: string) {
-      // Include "node_modules" in the resolved `runtimeId` to ensure
-      // its module is added to the vendor chunk.
-      return id === runtimeId ? runtimeDep : null
+      // Include "node_modules" in the resolved `id` to ensure its module is
+      // added to the vendor chunk.
+      return id === prodRuntimeId || id === devRuntimeId ? runtimeDep : null
     },
     load(id: string) {
       if (id === runtimeDep) {
-        const runtimePath = resolve.sync(runtimeId, {
+        let runtimePath = `react/cjs/react-jsx-${
+          isProduction ? 'runtime.production.min' : 'dev-runtime.development'
+        }.js`
+        runtimePath = resolve.sync(runtimePath, {
           basedir: projectRoot
         })
-        const exports = ['jsx', 'jsxs', 'Fragment']
-        return [
+        // We can't use `export * from` or else any callsite that uses
+        // this module will be compiled to `jsxRuntime.exports.jsx`
+        // instead of the more concise `jsx` alias.
+        const lines = [
           `import * as jsxRuntime from ${JSON.stringify(runtimePath)}`,
-          // We can't use `export * from` or else any callsite that uses
-          // this module will be compiled to `jsxRuntime.exports.jsx`
-          // instead of the more concise `jsx` alias.
-          ...exports.map((name) => `export const ${name} = jsxRuntime.${name}`)
-        ].join('\n')
+          `export const Fragment = jsxRuntime.Fragment`
+        ]
+        for (const prodId of ['jsx', 'jsxs']) {
+          const importedId = isProduction ? prodId : prodId + 'DEV'
+          lines.push(`export const ${importedId} = jsxRuntime.${importedId}`)
+          if (!isProduction) {
+            // Ensure production exports exist in development mode.
+            lines.push(`export const ${prodId} = jsxRuntime.${importedId}`)
+          }
+        }
+        return lines.join('\n')
       }
     }
   }
