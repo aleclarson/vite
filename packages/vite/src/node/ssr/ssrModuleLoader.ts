@@ -24,6 +24,8 @@ const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:ssr')
 const warn = (...msg: string[]) => debug(chalk.yellow('warn ') + msg.join(' '))
 
+const E_SERVER_CLOSED = 'Server is closed'
+
 export type SSRModuleExports = Record<string, any>
 
 export interface SSRModule {
@@ -199,7 +201,7 @@ export async function ssrLoadModule(
   urlStack: string[] = []
 ): Promise<SSRModuleExports | SSRModuleExports[]> {
   if (server.closed) {
-    throw Error('Server is closed')
+    throw Error(E_SERVER_CLOSED)
   }
   if (Array.isArray(url)) {
     // Load multiple entries in parallel.
@@ -237,7 +239,7 @@ export async function ssrLoadModule(
       ))
     )
     executing.catch((e) => {
-      if (!e.originalStack) {
+      if (!e.originalStack && e.message !== E_SERVER_CLOSED) {
         try {
           ssrRewriteStacktrace(e, server.moduleGraph)
         } catch {}
