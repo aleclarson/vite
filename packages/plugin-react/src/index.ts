@@ -43,18 +43,46 @@ export interface Options {
    */
   jsxImportSource?: string
   /**
-   * Enable decorator syntax proposal.
-   * @see https://babeljs.io/docs/en/babel-plugin-proposal-decorators
-   */
-  decorators?: { legacy: true } | { beforeExport: boolean }
-  /**
    * Babel configuration applied in both dev and prod.
    */
-  babel?: TransformOptions
+  babel?: BabelOptions
   /**
    * @deprecated Use `babel.parserOpts.plugins` instead
    */
   parserPlugins?: ParserOptions['plugins']
+}
+
+export type BabelOptions = Omit<
+  TransformOptions,
+  | 'ast'
+  | 'filename'
+  | 'root'
+  | 'sourceFileName'
+  | 'sourceMaps'
+  | 'inputSourceMap'
+>
+
+/**
+ * The object type used by the `options` passed to plugins with
+ * an `api.reactBabel` method.
+ */
+export interface ReactBabelOptions extends BabelOptions {
+  plugins: Extract<BabelOptions['plugins'], any[]>
+  presets: Extract<BabelOptions['presets'], any[]>
+  parserOpts: ParserOptions & {
+    plugins: Extract<ParserOptions['plugins'], any[]>
+  }
+}
+
+declare module 'vite' {
+  export interface Plugin {
+    api?: {
+      /**
+       * Manipulate the Babel options of `@vitejs/plugin-react`
+       */
+      reactBabel?: (options: ReactBabelOptions, config: ResolvedConfig) => void
+    }
+  }
 }
 
 const prodRuntimeId = 'react/jsx-runtime'
@@ -71,25 +99,22 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
 
   const useAutomaticRuntime = opts.jsxRuntime !== 'classic'
 
-  let userPlugins = [...(opts.babel?.plugins || [])]
-  let userPresets = [...(opts.babel?.presets || [])]
+  const babelOptions = {
+    babelrc: false,
+    configFile: false,
+    ...opts.babel
+  } as ReactBabelOptions
 
-  const userParserPlugins =
-    opts.parserPlugins || opts.babel?.parserOpts?.plugins || []
+  babelOptions.plugins ||= []
+  babelOptions.presets ||= []
+  babelOptions.parserOpts ||= {} as any
+  babelOptions.parserOpts.plugins ||= opts.parserPlugins || []
 
-  // Shortcut for enabling decorator syntax.
-  if (opts.decorators) {
-    userParserPlugins.push(
-      'legacy' in opts.decorators
-        ? 'decorators-legacy'
-        : [
-            'decorators',
-            { decoratorsBeforeExport: opts.decorators.beforeExport }
-          ]
-    )
-  }
-
-  const importReactRE = /(^|\n)import\s+(\*\s+as\s+)?React\s+/
+  // Support patterns like:
+  // - import * as React from 'react';
+  // - import React from 'react';
+  // - import React, {useEffect} from 'react';
+  const importReactRE = /(^|\n)import\s+(\*\s+as\s+)?React(,|\s+)/
 
   const viteBabel: Plugin = {
     name: 'vite:react-babel',
@@ -113,30 +138,18 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
       }
 
       config.plugins.forEach((plugin) => {
-        const isExtraneous =
+        const hasConflict =
           plugin.name === 'react-refresh' ||
           (plugin !== viteReactJsx && plugin.name === 'vite:react-jsx')
 
-        if (isExtraneous)
+        if (hasConflict)
           return config.logger.warn(
             `[@vitejs/plugin-react] You should stop using "${plugin.name}" ` +
               `since this plugin conflicts with it.`
           )
 
-        if (plugin.babel) {
-          const { plugins, presets } = plugin.babel
-          if (plugins) {
-            userPlugins =
-              plugin.enforce === 'pre'
-                ? [...plugins, ...userPlugins]
-                : [...userPlugins, ...plugins]
-          }
-          if (presets) {
-            userPresets =
-              plugin.enforce === 'pre'
-                ? [...presets, ...userPresets]
-                : [...userPresets, ...presets]
-          }
+        if (plugin.api?.reactBabel) {
+          plugin.api.reactBabel(babelOptions, config)
         }
       })
     },
@@ -148,7 +161,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           !moduleInfo.meta.filename ||
           (id.startsWith(projectRoot + '/') && !isNodeModules)
 
-        let plugins = isProjectFile ? [...userPlugins] : []
+        const plugins = isProjectFile ? [...babelOptions.plugins] : []
 
         let useFastRefresh = false
         if (!skipFastRefresh && !ssr && !isNodeModules) {
@@ -213,15 +226,15 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
         // module, including node_modules and linked packages.
         const shouldSkip =
           !plugins.length &&
-          !opts.babel?.configFile &&
-          !(isProjectFile && (userPresets.length || opts.babel?.babelrc))
+          !babelOptions.configFile &&
+          !(isProjectFile && babelOptions.babelrc)
 
         if (shouldSkip) {
           return // Avoid parsing if no plugins exist.
         }
 
-        const parserPlugins: typeof userParserPlugins = [
-          ...userParserPlugins,
+        const parserPlugins: typeof babelOptions.parserOpts.plugins = [
+          ...babelOptions.parserOpts.plugins,
           'importMeta',
           // This plugin is applied before esbuild transforms the code,
           // so we need to enable some stage 3 syntax that is supported in
@@ -243,36 +256,32 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           }
         }
 
-        const isReasonReact = id.endsWith('.bs.js')
+        const transformAsync = ast
+          ? babel.transformFromAstAsync.bind(babel, ast, code)
+          : babel.transformAsync.bind(babel, code)
 
-        const babelOpts: TransformOptions = {
-          babelrc: false,
-          configFile: false,
-          ...opts.babel,
+        const isReasonReact = id.endsWith('.bs.js')
+        const result = await transformAsync({
+          ...babelOptions,
           ast: !isReasonReact,
           root: projectRoot,
           filename: id,
           sourceFileName: id,
           parserOpts: {
-            ...opts.babel?.parserOpts,
+            ...babelOptions.parserOpts,
             sourceType: 'module',
             allowAwaitOutsideFunction: true,
             plugins: parserPlugins
           },
           generatorOpts: {
-            ...opts.babel?.generatorOpts,
+            ...babelOptions.generatorOpts,
             decoratorsBeforeExport: true
           },
           plugins,
-          presets: isProjectFile ? userPresets : [],
           sourceMaps: true,
           // Vite handles sourcemap flattening
           inputSourceMap: false as any
-        }
-
-        const result = ast
-          ? await babel.transformFromAstAsync(ast, code, babelOpts)
-          : await babel.transformAsync(code, babelOpts)
+        })
 
         if (result?.map) {
           result.map.sourcesContent = [code]
