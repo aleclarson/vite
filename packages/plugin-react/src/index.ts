@@ -153,7 +153,7 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
         let useFastRefresh = false
         if (!skipFastRefresh && !ssr && !isNodeModules) {
           // Modules with .js or .ts extension must import React.
-          const isReactModule = id.endsWith('x') || code.includes('react')
+          const isReactModule = id.endsWith('x') || importReactRE.test(code)
           if (isReactModule && filter(id)) {
             useFastRefresh = true
             plugins.push([
