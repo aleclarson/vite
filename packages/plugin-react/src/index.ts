@@ -97,26 +97,33 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
   let projectRoot = process.cwd()
   let skipFastRefresh = opts.fastRefresh === false
   let skipReactImport = false
+  let babelOptions: ReactBabelOptions
 
   const useAutomaticRuntime = opts.jsxRuntime !== 'classic'
-
-  const babelOptions = {
-    babelrc: false,
-    configFile: false,
-    ...opts.babel
-  } as ReactBabelOptions
-
-  babelOptions.plugins ||= []
-  babelOptions.presets ||= []
-  babelOptions.overrides ||= []
-  babelOptions.parserOpts ||= {} as any
-  babelOptions.parserOpts.plugins ||= opts.parserPlugins || []
 
   // Support patterns like:
   // - import * as React from 'react';
   // - import React from 'react';
   // - import React, {useEffect} from 'react';
   const importReactRE = /(^|\n)import\s+(\*\s+as\s+)?React(,|\s+)/
+
+  const resetBabelOptions = () => {
+    babelOptions = {
+      babelrc: false,
+      configFile: false,
+      ...opts.babel
+    } as ReactBabelOptions
+
+    babelOptions.plugins ||= []
+    babelOptions.presets ||= []
+    babelOptions.overrides ||= []
+    babelOptions.parserOpts ||= {} as any
+    babelOptions.parserOpts.plugins ||= opts.parserPlugins || []
+  }
+
+  // Initialize the `babelOptions` object immediately, so this plugin
+  // can be used with Rollup directly, not only through Vite.
+  resetBabelOptions()
 
   const viteBabel: Plugin = {
     name: 'vite:react-babel',
@@ -139,6 +146,9 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
         )
       }
 
+      // Reset the `babelOptions` object in case this plugin is reused between
+      // two separate Vite builds. Otherwise, "duplicate plugin" errors are likely.
+      resetBabelOptions()
       config.plugins.forEach((plugin) => {
         const hasConflict =
           plugin.name === 'react-refresh' ||
