@@ -114,10 +114,6 @@ export interface ServerOptions extends CommonServerOptions {
    * @default true
    */
   bindShortcuts?: boolean
-  /**
-   * When true, static imports won't be pre-emptively loaded and transformed.
-   */
-  lazyTransform?: boolean
 }
 
 export interface ResolvedServerOptions extends ServerOptions {
