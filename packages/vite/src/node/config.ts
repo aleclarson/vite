@@ -260,10 +260,15 @@ export type ResolveFn = (
 ) => Promise<string | undefined>
 
 export async function resolveConfig(
-  inlineConfig: InlineConfig,
+  inlineConfig: InlineConfig | ResolvedConfig,
   command: 'build' | 'serve',
   defaultMode = 'development'
 ): Promise<ResolvedConfig> {
+  if ('command' in inlineConfig) {
+    // Already resolved
+    return inlineConfig
+  }
+
   let config = inlineConfig
   let configFileDependencies: string[] = []
   let mode = inlineConfig.mode || defaultMode

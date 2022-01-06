@@ -345,7 +345,7 @@ export type ViteBuild = {
  * Returns a Promise containing the build result.
  */
 export async function build(
-  inlineConfig: InlineConfig = {}
+  inlineConfig: InlineConfig | ResolvedConfig = {}
 ): Promise<ViteBuild | RollupWatcher> {
   parallelCallCounts++
   try {
@@ -360,7 +360,7 @@ export async function build(
 }
 
 async function doBuild(
-  inlineConfig: InlineConfig = {}
+  inlineConfig: InlineConfig | ResolvedConfig = {}
 ): Promise<ViteBuild | RollupWatcher> {
   const config = await resolveConfig(inlineConfig, 'build', 'production')
   const options = config.build
