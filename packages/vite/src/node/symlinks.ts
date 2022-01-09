@@ -18,6 +18,8 @@ export interface FileSystem {
   readlinkSync(path: string): string
 }
 
+const packageJsonSuffix = '/package.json'
+
 /**
  * Create a symlink resolver that uses a cache to reduce the
  * number of I/O calls. See #6030 for more information.
@@ -83,69 +85,84 @@ export function createSymlinkResolver(
           parentPath = path.dirname(parentPath)
         }
 
-      // Use the nearest parent with a cached resolution.
-      const cachedParent = (resolvedPath = cache[parentPath])
-      if (!cachedParent) {
-        if (isInRoot) {
-          // Always use the immediate parent when calling fs.realpath
-          parentPath = path.dirname(unresolvedPath)
-        }
+      // Optimize for "package.json" resolutions by assuming they're
+      // never symlinks. This allows us to reuse cached "**/node_modules"
+      // resolutions more often.
+      const isPackageJson = unresolvedPath.endsWith(packageJsonSuffix)
+      let unresolvedDir = isPackageJson
+        ? path.dirname(unresolvedPath)
+        : unresolvedPath
 
+      // Use the nearest parent with a cached resolution.
+      const cachedParent = cache[parentPath]
+      if (!cachedParent || parentPath !== path.dirname(unresolvedDir)) {
         this.fsCalls++
-        resolvedPath = fs.realpathSync.native(parentPath)
-        cache[parentPath] = resolvedPath
-        if (isDebug && parentPath !== resolvedPath) {
-          debug(`Resolved "${parentPath}" to "${resolvedPath}"`)
+        resolvedPath = fs.realpathSync.native(unresolvedPath)
+        cache[unresolvedPath] = resolvedPath
+        if (isDebug && unresolvedPath !== resolvedPath) {
+          debug(`Resolved "${unresolvedPath}" to "${resolvedPath}"`)
         }
         // Since fs.realpath resolves all directories in a given path,
         // we can safely cache every directory in the resolved path.
         if (resolvedPath.startsWith(root + '/')) {
           cacheRecursively(resolvedPath)
         }
+        return resolvedPath
       }
 
-      // Append the unresolved subpath.
-      resolvedPath += unresolvedPath.slice(parentPath.length)
+      // Append the unresolved part. Note this variable is only guaranteed
+      // to be a directory when `isPackageJson` is true.
+      let resolvedDir = cachedParent + unresolvedDir.slice(parentPath.length)
+      parentPath = unresolvedDir
 
-      if (resolvedPath !== unresolvedPath) {
-        cache[unresolvedPath] = resolvedPath
+      // The `resolvedDir` is not fully resolved yet, as we still need to
+      // check if the basename is a symlink too. But we still cache it
+      // for faster recursive symlink resolutions in the future.
+      if (resolvedDir !== unresolvedDir) {
+        cache[unresolvedDir] = resolvedDir
         if (isDebug) {
-          debug(`Resolved "${unresolvedPath}" to "${resolvedPath}"`)
+          debug(`Resolved "${unresolvedDir}" to "${resolvedDir}"`)
         }
 
         // Check the cache again now that our parent directories are resolved.
-        unresolvedPath = resolvedPath
-        resolvedPath = resolveWithCache(unresolvedPath) || unresolvedPath
-        if (resolvedPath !== unresolvedPath) {
+        unresolvedDir = resolvedDir
+        resolvedDir = resolveWithCache(unresolvedDir) || unresolvedDir
+        if (resolvedDir !== unresolvedDir) {
           if (isVerbose) {
-            debug(`Found "${unresolvedPath}" in cache`)
+            debug(`Found "${unresolvedDir}" in cache`)
           }
           if (cachedParent) {
             this.cacheHits++
           }
-          return resolvedPath
+          if (isPackageJson) {
+            return resolvedDir + packageJsonSuffix
+          }
+          return resolvedDir
         }
       }
 
-      // When the `unresolvedPath` is itself a symlink, we must follow it
+      // When the `unresolvedDir` is itself a symlink, we must follow it
       // *after* resolving parent directories, in case its target path is
       // pointing to a location outside a symlinked parent directory.
       try {
         this.fsCalls++
-        const targetPath = fs.readlinkSync(resolvedPath)
+        const targetPath = fs.readlinkSync(resolvedDir)
         if (targetPath) {
-          resolvedPath = path.resolve(path.dirname(resolvedPath), targetPath)
+          resolvedDir = path.resolve(path.dirname(resolvedDir), targetPath)
 
           // Avoid deadlocks from circular symlinks.
-          if (seen?.has(resolvedPath)) {
-            return resolvedPath
+          if (seen?.has(resolvedDir)) {
+            return unresolvedPath
           }
           seen ??= new Set()
-          seen.add(resolvedPath)
+          seen.add(resolvedDir)
 
           // The resolved path may be a file within a symlinked directory
           // and/or a symlink itself.
-          resolvedPath = this.realpathSync(resolvedPath, seen)
+          resolvedDir = this.realpathSync(resolvedDir, seen)
+
+          // Append "/package.json" if necessary.
+          resolvedPath = resolvedDir + (isPackageJson ? packageJsonSuffix : '')
         }
       } catch (e: any) {
         if (e.errno !== -22) {
