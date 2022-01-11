@@ -202,7 +202,7 @@ export function watchPackageDataPlugin(config: ResolvedConfig): Plugin {
   return {
     name: 'vite:watch-package-data',
     buildStart() {
-      watchFile = this.addWatchFile
+      watchFile = this.addWatchFile.bind(this)
       watchQueue.forEach(watchFile)
       watchQueue.clear()
     },
