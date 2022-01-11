@@ -27,30 +27,29 @@ export function resolveSSRExternal(
   seen: Set<string> = new Set()
 ): string[] {
   const ssrConfig = config.ssr
-  if (ssrConfig?.noExternal === true) {
-    return []
-  }
 
-  collectExternals(config.root, config.packageCache, ssrExternals, seen)
+  if (ssrConfig?.noExternal !== true) {
+    collectExternals(config.root, config.packageCache, ssrExternals, seen)
 
-  for (const dep of knownImports) {
-    // assume external if not yet seen
-    if (!seen.has(dep)) {
-      ssrExternals.add(dep)
-    }
-  }
-
-  ssrExternals.delete('vite')
-
-  if (ssrConfig?.noExternal) {
-    const isBundled = createFilter(ssrConfig.noExternal, undefined, {
-      resolve: false
-    })
-    ssrExternals.forEach((id) => {
-      if (isBundled(id)) {
-        ssrExternals.delete(id)
+    for (const dep of knownImports) {
+      // assume external if not yet seen
+      if (!seen.has(dep)) {
+        ssrExternals.add(dep)
       }
-    })
+    }
+
+    ssrExternals.delete('vite')
+
+    if (ssrConfig?.noExternal) {
+      const isBundled = createFilter(ssrConfig.noExternal, undefined, {
+        resolve: false
+      })
+      ssrExternals.forEach((id) => {
+        if (isBundled(id)) {
+          ssrExternals.delete(id)
+        }
+      })
+    }
   }
 
   // "ssr.external" overrides "ssr.noExternal"
