@@ -180,25 +180,34 @@ export const ssrCreateContext = (
   }
 })
 
+export type SSRStackFrame = {
+  url: string
+  file: string | null
+  line: number | null
+}
+
 export async function ssrLoadModule(
   url: string,
   server: ViteDevServer,
   context?: SSRContext,
-  urlStack?: string[]
+  importChain?: SSRStackFrame[],
+  line?: number | null
 ): Promise<SSRModuleExports>
 
 export async function ssrLoadModule(
   urls: string[],
   server: ViteDevServer,
   context?: SSRContext,
-  urlStack?: string[]
+  importChain?: SSRStackFrame[],
+  line?: number | null
 ): Promise<SSRModuleExports[]>
 
 export async function ssrLoadModule(
   url: string | string[],
   server: ViteDevServer,
   context = ssrCreateContext(server),
-  urlStack: string[] = []
+  importChain: SSRStackFrame[] = [],
+  line?: number | null
 ): Promise<SSRModuleExports | SSRModuleExports[]> {
   if (server.closed) {
     throw Error(E_SERVER_CLOSED)
@@ -206,7 +215,7 @@ export async function ssrLoadModule(
   if (Array.isArray(url)) {
     // Load multiple entries in parallel.
     return Promise.all(
-      url.map((url) => ssrLoadModule(url, server, context, urlStack))
+      url.map((url) => ssrLoadModule(url, server, context, importChain))
     )
   }
   // Wait for module purging to finish.
@@ -216,7 +225,7 @@ export async function ssrLoadModule(
   url = unwrapId(url)
   let executing = context.executedModules.get(url)
   if (!executing) {
-    const importer = urlStack[urlStack.length - 1]
+    const importer = importChain[importChain.length - 1]?.url
 
     let resolving = context.resolvedModules.get(url)
     if (!resolving) {
@@ -235,7 +244,7 @@ export async function ssrLoadModule(
     context.executedModules.set(
       url,
       (executing = resolving.then((ssrModule) =>
-        executeModule(ssrModule, server, context, urlStack)
+        executeModule(ssrModule, server, context, importChain, line)
       ))
     )
     executing.catch((e) => {
@@ -326,7 +335,8 @@ async function executeModule(
   importer: SSRModule,
   server: ViteDevServer,
   context: SSRContext,
-  urlStack: string[]
+  importChain: SSRStackFrame[],
+  line?: number | null
 ): Promise<SSRModuleExports> {
   const {
     isProduction,
@@ -356,9 +366,17 @@ async function executeModule(
     resolveOptions.dedupe = dedupePeerDeps(filename, resolveOptions)
   }
 
-  urlStack = urlStack.concat(importer.url)
+  importChain = importChain.concat({
+    url: importer.url,
+    file: importer.file,
+    line: line ?? null
+  })
 
-  async function ssrImport(dep: string, importChain = urlStack) {
+  async function ssrImport(
+    dep: string,
+    line: number | null,
+    isDynamic?: boolean
+  ) {
     if (server._pendingReload) {
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
@@ -368,16 +386,27 @@ async function executeModule(
     }
     // Circular imports resolve with an incomplete module, so
     // imported values cannot be used in top-level statements.
-    if (importChain.includes(dep)) {
+    const dupeIndex = importChain.findIndex((importer) => importer.url === dep)
+    if (dupeIndex >= 0) {
       if (isDebug) {
         warn(
           `Circular import may lead to unexpected behavior\n `,
-          importChain.slice(importChain.indexOf(dep)).concat(dep).join(' → ')
+          importChain
+            .slice(dupeIndex)
+            .map((importer) => importer.url)
+            .concat(dep)
+            .join(' → ')
         )
       }
       return (await context.resolvedModules.get(dep))!.exports
     }
-    return ssrLoadModule(dep, server, context, importChain)
+    return ssrLoadModule(
+      dep,
+      server,
+      context,
+      isDynamic ? [] : importChain,
+      line
+    )
   }
 
   async function ssrDynamicImport(url: string) {
@@ -389,7 +418,7 @@ async function executeModule(
     // We want dynamic imports to be treated like entry modules,
     // so the URL stack needs to be empty. Since circular imports
     // are not a concern for dynamic imports, this is okay.
-    return ssrImport(dep, [])
+    return ssrImport(dep, null, true)
   }
 
   function ssrExportAll(sourceModule: any) {
@@ -441,6 +470,24 @@ async function executeModule(
     await initialize(...Object.values(ssrArguments))
     postHooks.forEach((postHook) => postHook())
   } catch (e) {
+    if (!e.ssrStack) {
+      const firstFrame =
+        e.constructor.name === 'SyntaxError'
+          ? e.stack.match(/^[^\n]+/)![0]
+          : e.stack.match(/^ {4}at (.+)$/m)![1]
+
+      e.message += (e.ssrStack = importChain
+        .slice(0, -1)
+        .map((importer, i) => {
+          const source = importer.file || importer.url
+          const { line } = importChain[i + 1]
+          return source + (line ? ':' + line : '')
+        })
+        .concat(firstFrame)
+        .reverse())
+        .map((url: string) => `\n    at ${url}`)
+        .join('')
+    }
     postHooks.forEach((postHook) => postHook(e))
     throw e
   }

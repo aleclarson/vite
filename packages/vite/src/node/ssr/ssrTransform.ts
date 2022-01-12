@@ -12,7 +12,7 @@ import {
 } from 'estree'
 import { extract_names as extractNames } from 'periscopic'
 import { walk as eswalk } from 'estree-walker'
-import { combineSourcemaps } from '../utils'
+import { combineSourcemaps, numberToPos } from '../utils'
 import { RawSourceMap } from '@ampproject/remapping/dist/types/types'
 
 type Node = _Node & {
@@ -62,9 +62,12 @@ export async function ssrTransform(
     const importId = findFreeName(
       `import_` + path.basename(source, path.extname(source)).replace(/\W/g, '')
     )
+    const { line } = numberToPos(code, node.start)
     s.appendLeft(
       node.start,
-      `const ${importId} = await ${ssrImportKey}(${JSON.stringify(source)});`
+      `const ${importId} = await ${ssrImportKey}(${JSON.stringify(source)}, ${
+        line + 1
+      });`
     )
     return importId
   }
