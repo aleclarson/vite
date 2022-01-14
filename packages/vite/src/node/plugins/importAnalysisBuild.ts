@@ -163,7 +163,7 @@ export function buildImportAnalysisPlugin(config: ResolvedConfig): Plugin {
           continue
         }
 
-        if (dynamicIndex > -1 && insertPreload) {
+        if (dynamicIndex > -1 && insertPreload && specifier) {
           needPreloadHelper = true
           const dynamicEnd = source.indexOf(`)`, end) + 1
           const original = source.slice(dynamicIndex, dynamicEnd)
