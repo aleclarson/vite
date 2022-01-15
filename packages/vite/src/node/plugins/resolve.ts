@@ -465,7 +465,10 @@ export function tryNodeResolve(
     path.isAbsolute(importer) &&
     fs.existsSync(cleanUrl(importer))
   ) {
-    basedir = fs.realpathSync.native(path.dirname(importer))
+    basedir = path.dirname(importer)
+    basedir = symlinkResolver
+      ? symlinkResolver.realpathSync(basedir)
+      : fs.realpathSync.native(basedir)
   } else {
     basedir = root
   }
