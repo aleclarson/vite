@@ -160,9 +160,6 @@ export function createSymlinkResolver(
           // The resolved path may be a file within a symlinked directory
           // and/or a symlink itself.
           resolvedDir = this.realpathSync(resolvedDir, seen)
-
-          // Append "/package.json" if necessary.
-          resolvedPath = resolvedDir + (isPackageJson ? packageJsonSuffix : '')
         }
       } catch (e: any) {
         if (e.errno !== -22) {
@@ -170,6 +167,9 @@ export function createSymlinkResolver(
           return unresolvedPath
         }
       }
+
+      // Append "/package.json" if necessary.
+      resolvedPath = resolvedDir + (isPackageJson ? packageJsonSuffix : '')
 
       cache[unresolvedPath] = resolvedPath
       if (isDebug && resolvedPath !== unresolvedPath) {
