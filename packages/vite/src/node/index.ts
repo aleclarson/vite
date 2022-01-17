@@ -9,6 +9,10 @@ export { createLogger, printHttpServerUrls } from './logger'
 export { transformWithEsbuild } from './plugins/esbuild'
 export { applyHtmlTransforms, resolveHtmlTransforms } from './plugins/html'
 export { resolvePackageEntry } from './plugins/resolve'
+export {
+  splitVendorChunkPlugin,
+  splitVendorChunk
+} from './plugins/splitVendorChunk'
 export { resolvePackageData } from './packages'
 export { createTransformContext } from './transform'
 export { createTransformer } from './server/transformRequest'
@@ -105,3 +109,4 @@ export type { Terser } from 'types/terser'
 export type { RollupCommonJSOptions } from 'types/commonjs'
 export type { RollupDynamicImportVarsOptions } from 'types/dynamicImportVars'
 export type { Matcher, AnymatchPattern, AnymatchFn } from 'types/anymatch'
+export type { SplitVendorChunkCache } from './plugins/splitVendorChunk'
