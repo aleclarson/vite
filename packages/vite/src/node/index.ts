@@ -85,6 +85,10 @@ export type {
   SSRModuleExports
 } from './ssr/ssrModuleLoader'
 export type {
+  PluginContext as RollupPluginContext,
+  TransformPluginContext as RollupTransformPluginContext
+} from 'rollup'
+export type {
   HMRPayload,
   ConnectedPayload,
   UpdatePayload,
