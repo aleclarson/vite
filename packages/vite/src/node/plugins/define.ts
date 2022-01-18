@@ -2,6 +2,7 @@ import MagicString from 'magic-string'
 import { TransformResult } from 'rollup'
 import { ResolvedConfig } from '../config'
 import { Plugin } from '../plugin'
+import { arraify } from '../utils'
 import { isCSSRequest } from './css'
 
 export function definePlugin(config: ResolvedConfig): Plugin {
@@ -39,10 +40,22 @@ export function definePlugin(config: ResolvedConfig): Plugin {
       process.env.NODE_ENV || config.mode
     ),
     ...userDefine,
-    ...importMetaKeys,
-    'process.env.': `({}).`,
-    'global.process.env.': `({}).`,
-    'globalThis.process.env.': `({}).`
+    ...importMetaKeys
+  }
+
+  // Avoid overwriting `process.env` access in certain envs.
+  const hasProcessEnv =
+    !!config.build.ssr &&
+    arraify(config.build.target).some(
+      (target) => target && target.startsWith('node')
+    )
+
+  if (!hasProcessEnv) {
+    Object.assign(replacements, {
+      'process.env.': `({}).`,
+      'global.process.env.': `({}).`,
+      'globalThis.process.env.': `({}).`
+    })
   }
 
   const pattern = new RegExp(
