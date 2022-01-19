@@ -1,7 +1,5 @@
 import { promises as fs } from 'fs'
-import path from 'path'
 import getEtag from 'etag'
-import * as convertSourceMap from 'convert-source-map'
 import { ExistingRawSourceMap, SourceDescription, SourceMap } from 'rollup'
 import chalk from 'chalk'
 import type { TransformContext } from '../transform'
@@ -16,7 +14,7 @@ import {
 } from '../utils'
 import { checkPublicFile } from '../plugins/asset'
 import { ssrTransform } from '../ssr/ssrTransform'
-import { injectSourcesContent } from './sourcemap'
+import { injectSourcesContent, loadSourceMap } from './sourcemap'
 import { isFileServingAllowed } from './middlewares/static'
 import { performance } from 'perf_hooks'
 
@@ -113,16 +111,7 @@ async function doTransform(
       }
     }
     if (code) {
-      try {
-        map = (
-          convertSourceMap.fromSource(code) ||
-          convertSourceMap.fromMapFileSource(code, path.dirname(file))
-        )?.toObject()
-      } catch (e) {
-        logger.warn(`Failed to load source map for ${url}.`, {
-          timestamp: true
-        })
-      }
+      map = loadSourceMap(code, file, logger)
     }
   } else {
     isDebug && debugLoad(`${timeFrom(loadStart)} [plugin] ${prettyUrl}`)
@@ -131,6 +120,7 @@ async function doTransform(
       map = loadResult.map
     } else {
       code = loadResult
+      map = loadSourceMap(code, file, logger)
     }
   }
   if (code == null) {

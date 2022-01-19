@@ -1,9 +1,11 @@
-import path from 'path'
+import convertSourceMap from 'convert-source-map'
 import { promises as fs } from 'fs'
+import path from 'path'
+import { SourceMap } from 'rollup'
 import { Logger } from '../logger'
+import type { SymlinkResolver } from '../symlinks'
 import { createDebugger } from '../utils'
 import { ModuleGraph } from './moduleGraph'
-import type { SymlinkResolver } from '../symlinks'
 
 const isDebug = !!process.env.DEBUG
 const debug = createDebugger('vite:sourcemap', {
@@ -72,4 +74,20 @@ export async function injectSourcesContent(
     logger.warnOnce(`Sourcemap for "${file}" points to missing source files`)
     isDebug && debug(`Missing sources:\n  ` + missingSources.join(`\n  `))
   }
+}
+
+export function loadSourceMap(
+  code: string,
+  file: string,
+  logger: Logger
+): SourceMap | null {
+  let converter = convertSourceMap.fromSource(code)
+  try {
+    converter = convertSourceMap.fromMapFileSource(code, path.dirname(file))
+  } catch (e) {
+    logger.warn(`Source map for "${file}" could not be loaded.`, {
+      timestamp: true
+    })
+  }
+  return converter?.toObject()
 }
