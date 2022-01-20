@@ -12,7 +12,7 @@ export { resolvePackageEntry } from './plugins/resolve'
 export { resolvePackageData } from './packages'
 export { createTransformContext } from './transform'
 export { createTransformer } from './server/transformRequest'
-export { normalizePath } from './utils'
+export { combineSourcemaps, normalizePath } from './utils'
 
 // additional types
 export type { CorsOptions, CorsOrigin, CommonServerOptions } from './http'
