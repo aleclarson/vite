@@ -110,3 +110,10 @@ export type { RollupCommonJSOptions } from 'types/commonjs'
 export type { RollupDynamicImportVarsOptions } from 'types/dynamicImportVars'
 export type { Matcher, AnymatchPattern, AnymatchFn } from 'types/anymatch'
 export type { SplitVendorChunkCache } from './plugins/splitVendorChunk'
+
+declare module 'rollup' {
+  export interface RenderedChunk {
+    importedAssets: Set<string>
+    importedCss: Set<string>
+  }
+}
