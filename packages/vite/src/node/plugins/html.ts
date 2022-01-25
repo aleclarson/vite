@@ -381,21 +381,19 @@ export function buildHtmlPlugin(config: ResolvedConfig): Plugin {
           })
         }
 
-        const cssFiles = config.chunkToEmittedCssFileMap.get(chunk)
-        if (cssFiles) {
-          cssFiles.forEach((file) => {
-            if (!seen.has(file)) {
-              seen.add(file)
-              tags.push({
-                tag: 'link',
-                attrs: {
-                  rel: 'stylesheet',
-                  href: toPublicPath(file, config)
-                }
-              })
-            }
-          })
-        }
+        chunk.importedCss.forEach((file) => {
+          if (!seen.has(file)) {
+            seen.add(file)
+            tags.push({
+              tag: 'link',
+              attrs: {
+                rel: 'stylesheet',
+                href: toPublicPath(file, config)
+              }
+            })
+          }
+        })
+
         return tags
       }
 

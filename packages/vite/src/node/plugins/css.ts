@@ -47,6 +47,12 @@ import { transform, formatMessages } from 'esbuild'
 
 // const debug = createDebugger('vite:css')
 
+declare module 'rollup' {
+  export interface RenderedChunk {
+    importedCss: Set<string>
+  }
+}
+
 export interface CSSOptions {
   minify?: boolean
   /**
@@ -249,7 +255,6 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
  * Plugin applied after user plugins
  */
 export function cssPostPlugin(config: ResolvedConfig): Plugin {
-  const { chunkToEmittedCssFileMap } = config
   const isMinificationEnabled =
     config.build.minify !== false || config.css?.minify === true
 
@@ -350,6 +355,8 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
         }
       }
 
+      chunk.importedCss = new Set()
+
       if (!chunkCSS) {
         return null
       }
@@ -407,10 +414,7 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
             type: 'asset',
             source: chunkCSS
           })
-          chunkToEmittedCssFileMap.set(
-            chunk,
-            new Set([this.getFileName(fileHandle)])
-          )
+          chunk.importedCss.add(this.getFileName(fileHandle))
         } else if (!config.build.ssr) {
           // legacy build, inline css
           chunkCSS = await processChunkCSS(chunkCSS, {
@@ -468,17 +472,8 @@ export function cssPostPlugin(config: ResolvedConfig): Plugin {
             // chunks instead.
             chunk.imports = chunk.imports.filter((file) => {
               if (pureCssChunks.has(file)) {
-                const css = chunkToEmittedCssFileMap.get(
-                  bundle[file] as OutputChunk
-                )
-                if (css) {
-                  let existing = chunkToEmittedCssFileMap.get(chunk)
-                  if (!existing) {
-                    existing = new Set()
-                  }
-                  css.forEach((file) => existing!.add(file))
-                  chunkToEmittedCssFileMap.set(chunk, existing)
-                }
+                const { importedCss } = bundle[file] as OutputChunk
+                importedCss.forEach((file) => chunk.importedCss.add(file))
                 return false
               }
               return true

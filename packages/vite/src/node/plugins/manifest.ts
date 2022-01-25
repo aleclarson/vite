@@ -88,9 +88,8 @@ export function manifestPlugin(config: ResolvedConfig): Plugin {
           }
         }
 
-        const cssFiles = config.chunkToEmittedCssFileMap.get(chunk)
-        if (cssFiles) {
-          manifestChunk.css = [...cssFiles]
+        if (chunk.importedCss.size) {
+          manifestChunk.css = [...chunk.importedCss]
         }
 
         const assets = config.chunkToEmittedAssetsMap.get(chunk)

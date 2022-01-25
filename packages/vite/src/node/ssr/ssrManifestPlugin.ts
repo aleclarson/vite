@@ -16,9 +16,7 @@ export function ssrManifestPlugin(config: ResolvedConfig): Plugin {
         if (chunk.type === 'chunk') {
           // links for certain entry chunks are already generated in static HTML
           // in those cases we only need to record info for non-entry chunks
-          const cssFiles = chunk.isEntry
-            ? null
-            : config.chunkToEmittedCssFileMap.get(chunk)
+          const cssFiles = chunk.isEntry ? null : chunk.importedCss
           const assetFiles = config.chunkToEmittedAssetsMap.get(chunk)
           for (const id in chunk.modules) {
             const normalizedId = normalizePath(relative(config.root, id))
