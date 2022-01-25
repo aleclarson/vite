@@ -91,9 +91,9 @@ export function manifestPlugin(config: ResolvedConfig): Plugin {
         if (chunk.importedCss.size) {
           manifestChunk.css = [...chunk.importedCss]
         }
-
-        const assets = config.chunkToEmittedAssetsMap.get(chunk)
-        if (assets) [(manifestChunk.assets = [...assets])]
+        if (chunk.importedAssets.size) {
+          manifestChunk.assets = [...chunk.importedAssets]
+        }
 
         return manifestChunk
       }
