@@ -81,7 +81,10 @@ declare module 'vite' {
       /**
        * Manipulate the Babel options of `@vitejs/plugin-react`
        */
-      reactBabel?: (options: ReactBabelOptions, config: ResolvedConfig) => void
+      reactBabel?: (
+        options: ReactBabelOptions,
+        config: import('vite').ResolvedConfig
+      ) => void
     }
   }
 }
