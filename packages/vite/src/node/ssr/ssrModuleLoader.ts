@@ -383,19 +383,19 @@ async function executeModule(
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
     }
+    const resolved = await server.pluginContainer.resolveId(
+      dep,
+      importer.file || importer.url,
+      undefined,
+      true
+    )
     if (dep[0] !== '/') {
-      let isExternal = context.isExternal(dep)
-      if (!isExternal) {
-        const resolved = await server.pluginContainer.resolveId(
-          dep,
-          importer.file || importer.url,
-          undefined,
-          true
-        )
-        if (resolved?.external) {
-          isExternal = true
-          dep = resolved.id
-        }
+      let isExternal: boolean
+      if (resolved?.external) {
+        isExternal = true
+        dep = resolved.id
+      } else {
+        isExternal = context.isExternal(dep)
       }
       if (isExternal) {
         return nodeRequire(dep, filename, resolveOptions, server)
