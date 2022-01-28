@@ -381,8 +381,22 @@ async function executeModule(
       // Wait for "server._ssrExternals" to be updated
       await server._pendingReload
     }
-    if (dep[0] !== '/' && context.isExternal(dep)) {
-      return nodeRequire(dep, filename, resolveOptions, server)
+    if (dep[0] !== '/') {
+      let isExternal = context.isExternal(dep)
+      if (!isExternal) {
+        const resolved = await server.pluginContainer.resolveId(
+          dep,
+          importer.file || importer.url,
+          undefined,
+          true
+        )
+        if (resolved?.external) {
+          isExternal = true
+        }
+      }
+      if (isExternal) {
+        return nodeRequire(dep, filename, resolveOptions, server)
+      }
     }
     // Circular imports resolve with an incomplete module, so
     // imported values cannot be used in top-level statements.
