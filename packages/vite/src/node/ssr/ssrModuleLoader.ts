@@ -48,6 +48,7 @@ export interface SSRModule {
  * can use it.
  */
 export interface SSRContext {
+  env: ImportMetaEnv
   plugins: SSRPlugin[]
   /** This accumulates entry modules until `loadingEntries` is empty */
   loadedEntries: Set<Promise<SSRModule>>
@@ -93,6 +94,7 @@ export const ssrCreateContext = (
   server: ViteDevServer,
   plugins: SSRPlugin[] = []
 ): SSRContext => ({
+  env: { ...server.config.env, SSR: true } as ImportMetaEnv,
   plugins,
   loadedEntries: new Set(),
   loadingEntries: new Set(),
@@ -392,6 +394,7 @@ async function executeModule(
         )
         if (resolved?.external) {
           isExternal = true
+          dep = resolved.id
         }
       }
       if (isExternal) {
@@ -449,7 +452,7 @@ async function executeModule(
     }
   }
 
-  const ssrImportMeta = { url: importer.url }
+  const ssrImportMeta = { url: importer.url, env: context.env }
   const ssrArguments: Record<string, any> = {
     [ssrModuleExportsKey]: importer.exports,
     [ssrImportMetaKey]: ssrImportMeta,

@@ -7,7 +7,6 @@ import MagicString from 'magic-string'
 import { init, parse as parseImports, ImportSpecifier } from 'es-module-lexer'
 import { isCSSRequest, isDirectCSSRequest } from './css'
 import {
-  isBuiltin,
   cleanUrl,
   createDebugger,
   generateCodeFrame,
@@ -40,7 +39,6 @@ import { parse as parseJS } from 'acorn'
 import type { Node } from 'estree'
 import { transformImportGlob } from '../importGlob'
 import { makeLegalIdentifier } from '@rollup/pluginutils'
-import { shouldExternalizeForSSR } from '../ssr/ssrExternal'
 import { performance } from 'perf_hooks'
 
 const isDebug = !!process.env.DEBUG
@@ -107,7 +105,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
     async transform(source, importer, ssr) {
       const prettyImporter = prettifyUrl(importer, root)
 
-      if (canSkip(importer)) {
+      if (ssr || canSkip(importer)) {
         isDebug && debug(chalk.dim(`[skipped] ${prettyImporter}`))
         return null
       }
@@ -209,48 +207,45 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           return [url, url]
         }
 
-        // make the URL browser-valid if not SSR
-        if (!ssr) {
-          // if the resolved id is not a valid browser import specifier,
-          // prefix it to make it valid. We will strip this before feeding it
-          // back into the transform pipeline
-          if (!url.startsWith('.') && !url.startsWith('/')) {
-            url =
-              VALID_ID_PREFIX + resolved.id.replace('\0', NULL_BYTE_PLACEHOLDER)
-          }
-
-          // mark non-js/css imports with `?import`
-          url = markExplicitImport(url)
-
-          // for relative js/css imports, or self-module virtual imports
-          // (e.g. vue blocks), inherit importer's version query
-          // do not do this for unknown type imports, otherwise the appended
-          // query can break 3rd party plugin's extension checks.
-          if ((isRelative || isSelfImport) && !/[\?&]import=?\b/.test(url)) {
-            const versionMatch = importer.match(DEP_VERSION_RE)
-            if (versionMatch) {
-              url = injectQuery(url, versionMatch[1])
-            }
-          }
-
-          // check if the dep has been hmr updated. If yes, we need to attach
-          // its last updated timestamp to force the browser to fetch the most
-          // up-to-date version of this module.
-          try {
-            const depModule = await moduleGraph.ensureEntryFromUrl(url)
-            if (depModule.lastHMRTimestamp > 0) {
-              url = injectQuery(url, `t=${depModule.lastHMRTimestamp}`)
-            }
-          } catch (e: any) {
-            // it's possible that the dep fails to resolve (non-existent import)
-            // attach location to the missing import
-            e.pos = pos
-            throw e
-          }
-
-          // prepend base (dev base is guaranteed to have ending slash)
-          url = base + url.replace(/^\//, '')
+        // if the resolved id is not a valid browser import specifier,
+        // prefix it to make it valid. We will strip this before feeding it
+        // back into the transform pipeline
+        if (!url.startsWith('.') && !url.startsWith('/')) {
+          url =
+            VALID_ID_PREFIX + resolved.id.replace('\0', NULL_BYTE_PLACEHOLDER)
         }
+
+        // mark non-js/css imports with `?import`
+        url = markExplicitImport(url)
+
+        // for relative js/css imports, or self-module virtual imports
+        // (e.g. vue blocks), inherit importer's version query
+        // do not do this for unknown type imports, otherwise the appended
+        // query can break 3rd party plugin's extension checks.
+        if ((isRelative || isSelfImport) && !/[\?&]import=?\b/.test(url)) {
+          const versionMatch = importer.match(DEP_VERSION_RE)
+          if (versionMatch) {
+            url = injectQuery(url, versionMatch[1])
+          }
+        }
+
+        // check if the dep has been hmr updated. If yes, we need to attach
+        // its last updated timestamp to force the browser to fetch the most
+        // up-to-date version of this module.
+        try {
+          const depModule = await moduleGraph.ensureEntryFromUrl(url)
+          if (depModule.lastHMRTimestamp > 0) {
+            url = injectQuery(url, `t=${depModule.lastHMRTimestamp}`)
+          }
+        } catch (e: any) {
+          // it's possible that the dep fails to resolve (non-existent import)
+          // attach location to the missing import
+          e.pos = pos
+          throw e
+        }
+
+        // prepend base (dev base is guaranteed to have ending slash)
+        url = base + url.replace(/^\//, '')
 
         return [url, resolved.id]
       }
@@ -338,18 +333,6 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           if (isExternalUrl(specifier) || isDataUrl(specifier)) {
             continue
           }
-          // skip ssr external
-          if (ssr) {
-            if (
-              server._ssrExternals &&
-              shouldExternalizeForSSR(specifier, server._ssrExternals)
-            ) {
-              continue
-            }
-            if (isBuiltin(specifier)) {
-              continue
-            }
-          }
           // skip client
           if (specifier === clientPublicPath) {
             continue
@@ -418,7 +401,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
             // for pre-transforming
             staticImportedUrls.add(urlWithoutBase)
           }
-        } else if (!importer.startsWith(clientDir) && !ssr) {
+        } else if (!importer.startsWith(clientDir)) {
           // check @vite-ignore which suppresses dynamic import warning
           const hasViteIgnore = /\/\*\s*@vite-ignore\s*\*\//.test(rawUrl)
 
@@ -454,7 +437,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         // inject import.meta.env
         let env = `import.meta.env = ${JSON.stringify({
           ...config.env,
-          SSR: !!ssr
+          SSR: false
         })};`
         // account for user env defines
         for (const key in config.define) {
@@ -468,7 +451,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         str().prepend(env)
       }
 
-      if (hasHMR && !ssr) {
+      if (hasHMR) {
         debugHmr(
           `${
             isSelfAccepting
@@ -518,12 +501,6 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
             )
           ).forEach(([url]) => importedUrls.add(url))
         }
-        // HMR transforms are no-ops in SSR, so an `accept` call will
-        // never be injected. Avoid updating the `isSelfAccepting`
-        // property for our module node in that case.
-        if (ssr && importerModule.isSelfAccepting) {
-          isSelfAccepting = true
-        }
         const prunedImports = await moduleGraph.updateModuleInfo(
           importerModule,
           importedUrls,
@@ -546,7 +523,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
       // pre-transform known direct imports
       if (config.server.preTransformRequests && staticImportedUrls.size) {
         staticImportedUrls.forEach((url) => {
-          server.transformRequest(unwrapId(removeImportQuery(url)), { ssr })
+          server.transformRequest(unwrapId(removeImportQuery(url)))
         })
       }
 
