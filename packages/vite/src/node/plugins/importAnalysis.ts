@@ -47,6 +47,7 @@ import { makeLegalIdentifier } from '@rollup/pluginutils'
 import { shouldExternalizeForSSR } from '../ssr/ssrExternal'
 import { performance } from 'perf_hooks'
 import { transformRequest } from '../server/transformRequest'
+import type { ResolvedUrl } from '../server/moduleGraph'
 import {
   isOptimizedDepFile,
   getDepsCacheDir,
@@ -191,7 +192,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
       const normalizeUrl = async (
         url: string,
         pos: number
-      ): Promise<[string, string]> => {
+      ): Promise<ResolvedUrl> => {
         if (base !== '/' && url.startsWith(base)) {
           url = url.replace(base, '/')
         }
@@ -251,7 +252,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         }
 
         if (isExternalUrl(url)) {
-          return [url, url]
+          return [url, url, resolved.meta]
         }
 
         // if the resolved id is not a valid browser import specifier,
@@ -302,7 +303,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           url = base + url.replace(/^\//, '')
         }
 
-        return [url, resolved.id]
+        return [url, resolved.id, resolved.meta]
       }
 
       // Import rewrites, we do them after all the URLs have been resolved
@@ -427,15 +428,29 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           }
 
           // normalize
-          const [normalizedUrl, resolvedId] = await normalizeUrl(
+          const [normalizedUrl, resolvedId, resolvedMeta] = await normalizeUrl(
             specifier,
             start
           )
           const url = normalizedUrl
 
           // record as safe modules
-          server?.moduleGraph.safeModulesPath.add(fsPathFromUrl(url))
+          moduleGraph.safeModulesPath.add(fsPathFromUrl(url))
 
+          // ensure module is in the graph under the correct
+          // resolvedId and sporting correct meta properties.
+          const mod = moduleGraph.getModuleById(resolvedId)
+          if (mod) {
+            mod.meta = { ...mod.meta, ...resolvedMeta }
+          } else {
+            moduleGraph.ensureEntryFromResolved([
+              normalizedUrl,
+              resolvedId,
+              resolvedMeta
+            ])
+          }
+
+          // rewrite
           if (url !== specifier) {
             importRewrites.push(async () => {
               let rewriteDone = false

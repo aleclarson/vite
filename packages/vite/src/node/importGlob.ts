@@ -16,6 +16,7 @@ import {
   normalizePath
 } from './utils'
 import type { RollupError } from 'rollup'
+import type { ResolvedUrl } from './server/moduleGraph'
 import type { Logger } from '.'
 import colors from 'picocolors'
 
@@ -57,7 +58,7 @@ export async function transformImportGlob(
   importIndex: number,
   root: string,
   logger: Logger,
-  normalizeUrl?: (url: string, pos: number) => Promise<[string, string]>,
+  normalizeUrl?: (url: string, pos: number) => Promise<ResolvedUrl>,
   resolve?: (url: string, importer?: string) => Promise<string | undefined>,
   preload = true
 ): Promise<{
