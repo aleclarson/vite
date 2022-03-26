@@ -221,7 +221,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
         if (!resolved) {
           // in ssr, we should let node handle the missing modules
           if (ssr) {
-            return [url, url]
+            return [url, url, null]
           }
           this.error(
             `Failed to resolve import "${url}" from "${path.relative(
