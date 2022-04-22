@@ -265,6 +265,9 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           ? babel.transformFromAstAsync.bind(babel, ast, code)
           : babel.transformAsync.bind(babel, code)
 
+        // This state is provided to Babel visitors.
+        const visitorState = { ssr, isProduction }
+
         const isReasonReact = extension.endsWith('.bs.js')
         const result = await transformAsync({
           ...babelOptions,
@@ -272,6 +275,12 @@ export default function viteReact(opts: Options = {}): PluginOption[] {
           root: projectRoot,
           filename: id,
           sourceFileName: filepath,
+          wrapPluginVisitorMethod(pluginAlias, visitorType, visitor) {
+            return (path, state) => {
+              Object.assign(state, visitorState)
+              return visitor(path, state)
+            }
+          },
           parserOpts: {
             ...babelOptions.parserOpts,
             sourceType: 'module',
