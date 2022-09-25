@@ -64,9 +64,9 @@ import {
   serveStaticMiddleware
 } from './middlewares/static'
 import { timeMiddleware } from './middlewares/time'
-import { ModuleGraph } from './moduleGraph'
+import { ModuleGraph, ModuleNode } from './moduleGraph'
 import { errorMiddleware, prepareError } from './middlewares/error'
-import type { HmrOptions } from './hmr'
+import { HmrOptions, updateModules } from './hmr'
 import { handleFileAddUnlink, handleHMRUpdate } from './hmr'
 import { openBrowser } from './openBrowser'
 import type { TransformOptions, TransformResult } from './transformRequest'
@@ -487,6 +487,21 @@ export async function createServer(
   })
   watcher.on('unlink', (file) => {
     handleFileAddUnlink(normalizePath(file), server)
+  })
+
+  ws.on('custom', ({ event, data: file }: { event: string; data: any }) => {
+    if (event === 'vite:invalidate') {
+      const modules = moduleGraph.getModulesByFile(file)
+      if (modules) {
+        const importers = new Set<ModuleNode>()
+        for (const mod of modules) {
+          for (const importer of mod.importers) {
+            importers.add(importer)
+          }
+        }
+        updateModules(file, Array.from(importers), Date.now(), server)
+      }
+    }
   })
 
   if (!middlewareMode && httpServer) {
