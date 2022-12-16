@@ -327,11 +327,12 @@ function invalidate(mod: ModuleNode, timestamp: number, seen: Set<ModuleNode>) {
   mod.ssrModule = null
   mod.ssrError = null
   mod.ssrTransformResult = null
-  mod.importers.forEach((importer) => {
-    if (!importer.acceptedHmrDeps.has(mod)) {
+  mod.importers.forEach(
+    (importer) =>
+      !importer.acceptedHmrDeps.has(mod) &&
+      importer.staticImportedUrls.includes(mod.url) &&
       invalidate(importer, timestamp, seen)
-    }
-  })
+  )
 }
 
 export function handlePrunedModules(

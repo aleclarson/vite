@@ -28,6 +28,7 @@ export class ModuleNode {
   acceptedHmrDeps = new Set<ModuleNode>()
   acceptedHmrExports: Set<string> | null = null
   importedBindings: Map<string, Set<string>> | null = null
+  staticImportedUrls: string[] = []
   isSelfAccepting?: boolean
   transformResult: TransformResult | null = null
   ssrTransformResult: TransformResult | null = null
@@ -136,6 +137,7 @@ export class ModuleGraph {
     mod: ModuleNode,
     importedModules: Set<string | ModuleNode>,
     importedBindings: Map<string, Set<string>> | null,
+    staticImportedUrls: string[],
     acceptedModules: Set<string | ModuleNode>,
     acceptedExports: Set<string> | null,
     isSelfAccepting: boolean,
@@ -176,6 +178,7 @@ export class ModuleGraph {
     // update accepted hmr exports
     mod.acceptedHmrExports = acceptedExports
     mod.importedBindings = importedBindings
+    mod.staticImportedUrls = staticImportedUrls
     return noLongerImported
   }
 

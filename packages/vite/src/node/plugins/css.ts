@@ -282,6 +282,9 @@ export function cssPlugin(config: ResolvedConfig): Plugin {
               thisModule,
               depModules,
               null,
+              Array.from(depModules, (m) =>
+                typeof m === 'string' ? m : m.url
+              ),
               // The root CSS proxy module is self-accepting and should not
               // have an explicit accept list
               new Set(),

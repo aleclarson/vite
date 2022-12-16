@@ -725,6 +725,7 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
           importerModule,
           importedUrls,
           importedBindings,
+          Array.from(staticImportedUrls, (i) => i.url),
           normalizedAcceptedUrls,
           isPartiallySelfAccepting ? acceptedExports : null,
           isSelfAccepting,
