@@ -69,6 +69,7 @@ import { findNearestPackageData } from './packages'
 import { loadEnv, resolveEnvPrefix } from './env'
 import type { ResolvedSSROptions, SSROptions } from './ssr'
 import { resolveSSROptions } from './ssr'
+import { TSConfckParseResult } from 'tsconfck'
 
 const debug = createDebugger('vite:config')
 const promisifiedRealpath = promisify(fs.realpath)
@@ -375,6 +376,7 @@ export type ResolvedConfig = Readonly<
     build: ResolvedBuildOptions
     preview: ResolvedPreviewOptions
     ssr: ResolvedSSROptions
+    tsconfigCache: Map<string, TSConfckParseResult>
     assetsInclude: (file: string) => boolean
     logger: Logger
     createResolver: (options?: Partial<InternalResolveOptions>) => ResolveFn

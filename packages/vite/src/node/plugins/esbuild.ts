@@ -10,7 +10,7 @@ import type {
 import { transform } from 'esbuild'
 import type { RawSourceMap } from '@ampproject/remapping'
 import type { InternalModuleFormat, SourceMap } from 'rollup'
-import type { TSConfckParseOptions } from 'tsconfck'
+import type { TSConfckParseOptions, TSConfckParseResult } from 'tsconfck'
 import { TSConfckParseError, findAll, parse } from 'tsconfck'
 import {
   cleanUrl,
@@ -257,7 +257,7 @@ export function esbuildPlugin(config: ResolvedConfig): Plugin {
     keepNames: false,
   }
 
-  initTSConfck(config.root)
+  initTSConfck(config.root, config.tsconfigCache)
 
   return {
     name: 'vite:esbuild',
@@ -311,7 +311,7 @@ const rollupToEsbuildFormatMap: Record<
 }
 
 export const buildEsbuildPlugin = (config: ResolvedConfig): Plugin => {
-  initTSConfck(config.root)
+  initTSConfck(config.root, config.tsconfigCache)
 
   return {
     name: 'vite:esbuild-transpile',
@@ -473,14 +473,18 @@ let tsconfckRoot: string | undefined
 let tsconfckParseOptions: TSConfckParseOptions | Promise<TSConfckParseOptions> =
   { resolveWithEmptyIfConfigNotFound: true }
 
-function initTSConfck(root: string, force = false) {
+function initTSConfck(
+  root: string,
+  cache: Map<string, TSConfckParseResult>,
+  force = false,
+) {
   // bail if already cached
   if (!force && root === tsconfckRoot) return
 
   const workspaceRoot = searchForWorkspaceRoot(root)
 
   tsconfckRoot = root
-  tsconfckParseOptions = initTSConfckParseOptions(workspaceRoot)
+  tsconfckParseOptions = initTSConfckParseOptions(workspaceRoot, cache)
 
   // cached as the options value itself when promise is resolved
   tsconfckParseOptions.then((options) => {
@@ -490,11 +494,14 @@ function initTSConfck(root: string, force = false) {
   })
 }
 
-async function initTSConfckParseOptions(workspaceRoot: string) {
+async function initTSConfckParseOptions(
+  workspaceRoot: string,
+  cache: Map<string, TSConfckParseResult>,
+) {
   const start = debug ? performance.now() : 0
 
   const options: TSConfckParseOptions = {
-    cache: new Map(),
+    cache,
     root: workspaceRoot,
     tsConfigPaths: new Set(
       await findAll(workspaceRoot, {
@@ -548,8 +555,15 @@ async function reloadOnTsconfigChange(changedFile: string) {
     // clear module graph to remove code compiled with outdated config
     server.moduleGraph.invalidateAll()
 
+    // clear tsconfig cache to force reparse
+    server.config.tsconfigCache.forEach((parseResult, key) => {
+      if (parseResult.tsconfigFile === changedFile) {
+        server.config.tsconfigCache.delete(key)
+      }
+    })
+
     // reset tsconfck so that recompile works with up2date configs
-    initTSConfck(server.config.root, true)
+    initTSConfck(server.config.root, server.config.tsconfigCache, true)
 
     // server may not be available if vite config is updated at the same time
     if (server) {
